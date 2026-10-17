@@ -2,19 +2,17 @@
 // Every question is derived from trig-data.js; there is no stored question bank.
 
 import {
-  STANDARD_ANGLES, GRID_ANGLES, FUNCTIONS,
-  trigOf, pointOf, inverseInputs, principalValue, valueKey,
-  angleTex, valueTex, pointTex,
+  STANDARD_ANGLES, FUNCTIONS,
+  trigOf, inverseInputs, principalValue, valueKey,
+  angleTex, valueTex,
 } from './trig-data.js';
 
 // answer: which answer pad the family uses.
 //   value       exact-value buttons + sign toggle
-//   point       two exact-value slots (x, y)
-//   angle       angle grid, 0 to 2π
+//   equation    sin θ / cos θ toggle + one of the sine/cosine values
 //   signedAngle angle grid + negative toggle
 export const FAMILIES = {
-  point: { label: 'Angle → Point', answer: 'point' },
-  angle: { label: 'Point → Angle', answer: 'angle' },
+  line:  { label: 'Line → Equation', answer: 'equation' },
   sin:   { label: 'Sine values', answer: 'value' },
   cos:   { label: 'Cosine values', answer: 'value' },
   tan:   { label: 'Tangent values', answer: 'value' },
@@ -23,27 +21,30 @@ export const FAMILIES = {
   atan:  { label: 'Inverse tangent', answer: 'signedAngle' },
 };
 
-// Each mode lists its families with relative weights. Mixed treats the two unit-circle
-// directions together as one source, so all seven sources show up about equally.
+// Each mode lists its families with relative weights, so all seven sources in Mixed show up about equally.
 export const MODES = {
-  circle:  { label: 'Unit Circle Points', blurb: 'Angles ↔ points (cos θ, sin θ)', weights: { point: 1, angle: 1 } },
+  circle:  { label: 'Unit Circle', blurb: 'Name the line: sin θ = … or cos θ = …', weights: { line: 1 } },
   values:  { label: 'Trig Values', blurb: 'sin, cos, and tan of standard angles', weights: { sin: 1, cos: 1, tan: 1 } },
   inverse: { label: 'Inverse Trig', blurb: 'sin⁻¹, cos⁻¹, tan⁻¹ with principal values', weights: { asin: 1, acos: 1, atan: 1 } },
-  mixed:   { label: 'Mixed Practice', blurb: 'A balanced mix of everything', weights: { point: 1, angle: 1, sin: 2, cos: 2, tan: 2, asin: 2, acos: 2, atan: 2 } },
+  mixed:   { label: 'Mixed Practice', blurb: 'A balanced mix of everything', weights: { line: 2, sin: 2, cos: 2, tan: 2, asin: 2, acos: 2, atan: 2 } },
 };
 
 const fnName = { sin: '\\sin', cos: '\\cos', tan: '\\tan' };
+
+// The values sine and cosine take at the standard angles, in increasing order: −1 … 0 … 1.
+export const SIN_COS_VALUES = inverseInputs('sin');
+
+// A line question draws x = v (a vertical line, so cos θ = v) or y = v (horizontal, sin θ = v).
+export const lineTex = (q) => `${q.fn === 'cos' ? 'x' : 'y'} = ${valueTex(q.input)}`;
+export const equationTex = ({ fn, v }) => `${fnName[fn]}\\theta = ${valueTex(v)}`;
 
 // All questions in a family.
 export function questionsFor(family) {
   if (FUNCTIONS.includes(family)) {
     return STANDARD_ANGLES.map((t) => ({ id: `${family}:${t}`, family, fn: family, angle: t }));
   }
-  if (family === 'point') {
-    return STANDARD_ANGLES.map((t) => ({ id: `point:${t}`, family, angle: t }));
-  }
-  if (family === 'angle') {
-    return GRID_ANGLES.map((t) => ({ id: `angle:${t}`, family, point: pointOf(t) }));
+  if (family === 'line') {
+    return ['cos', 'sin'].flatMap((fn) => SIN_COS_VALUES.map((v) => ({ id: `line:${fn}:${valueKey(v)}`, family, fn, input: v })));
   }
   const fn = family.slice(1); // asin → sin
   return inverseInputs(fn).map((v) => ({ id: `${family}:${valueKey(v)}`, family, fn, input: v }));
@@ -53,19 +54,17 @@ export function questionsFor(family) {
 export function correctAnswer(q) {
   switch (FAMILIES[q.family].answer) {
     case 'value': return trigOf(q.angle)[q.fn];
-    case 'point': return pointOf(q.angle);
-    case 'angle': return GRID_ANGLES.find((t) => valueKey(trigOf(t).cos) === valueKey(q.point.x) && valueKey(trigOf(t).sin) === valueKey(q.point.y));
+    case 'equation': return { fn: q.fn, v: q.input };
     case 'signedAngle': return principalValue(q.fn, q.input);
   }
 }
 
-// TeX for the question itself, plus a short caption shown above it.
+// TeX for the question itself, plus a short caption shown above it. A line question is a picture
+// on the circle, so its tex is empty and reviewTex names the line for the results screen.
 export function promptOf(q) {
   switch (q.family) {
-    case 'point':
-      return { caption: 'Find the point on the unit circle at', tex: `\\theta = ${angleTex(q.angle)}` };
-    case 'angle':
-      return { caption: 'Which angle lands on this point?', tex: pointTex(q.point) };
+    case 'line':
+      return { caption: 'Which equation does this line show?', tex: '', reviewTex: lineTex(q) };
     case 'asin': case 'acos': case 'atan':
       return { caption: 'Evaluate (exact, in radians)', tex: `${fnName[q.fn]}^{-1}\\!\\left(${valueTex(q.input)}\\right)` };
     default:
@@ -76,7 +75,7 @@ export function promptOf(q) {
 export function answerTex(q, answer) {
   switch (FAMILIES[q.family].answer) {
     case 'value': return valueTex(answer);
-    case 'point': return pointTex(answer);
+    case 'equation': return equationTex(answer);
     default: return angleTex(answer);
   }
 }

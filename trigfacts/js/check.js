@@ -1,10 +1,12 @@
 // Answer checking. Compares normalized symbolic values, never rendered text.
 
-import { trigOf, pointOf, pointKey, valuesEqual, inPrincipalRange, isStandardAngle } from './trig-data.js';
+import { trigOf, valuesEqual, inPrincipalRange, isStandardAngle } from './trig-data.js';
 import { FAMILIES } from './questions.js';
 
 // Returns { correct, reason }.
-// reason is 'correct', 'wrong', or, for inverse trig only:
+// reason is 'correct', 'wrong', or, for line questions only:
+//   'wrongFunction' sin θ picked for a vertical line, or cos θ for a horizontal one
+// or, for inverse trig only:
 //   'outsideRange'  the angle has the right trig value but is not a principal value
 //   'wrongValue'    the angle doesn't even have the right trig value
 export function checkAnswer(q, answer) {
@@ -14,14 +16,10 @@ export function checkAnswer(q, answer) {
     case 'value':
       return verdict(valuesEqual(answer, trigOf(q.angle)[q.fn]));
 
-    case 'point':
-      if (!answer.x || !answer.y) return verdict(false);
-      return verdict(pointKey(answer) === pointKey(pointOf(q.angle)));
-
-    case 'angle':
-      // Any angle in [0, 2π] at this point counts, so both 0 and 2π are accepted for (1, 0).
-      return verdict(isStandardAngle(answer) && answer >= 0 && answer <= 24 &&
-        pointKey(pointOf(answer)) === pointKey(q.point));
+    case 'equation':
+      if (!answer.v) return verdict(false);
+      if (answer.fn !== q.fn) return { correct: false, reason: 'wrongFunction' };
+      return verdict(valuesEqual(answer.v, q.input));
 
     case 'signedAngle': {
       if (!isStandardAngle(answer)) return verdict(false);

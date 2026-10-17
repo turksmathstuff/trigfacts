@@ -88,9 +88,12 @@
             <div class="practice-bar">
                 <button id="quit-btn" type="button" class="ghost small">← Modes</button>
                 <span id="mode-label" class="mode-label"></span>
-                <button id="circle-toggle" type="button" class="icon-btn" aria-pressed="true" aria-label="Hide unit circle">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l6-3.5"/><path d="M2.5 12h19M12 2.5v19" opacity=".45"/></svg>
-                </button>
+                <div class="bar-actions">
+                    <button id="help-btn" type="button" class="icon-btn help-btn" aria-label="How to answer">?</button>
+                    <button id="circle-toggle" type="button" class="icon-btn" aria-pressed="true" aria-label="Hide unit circle">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l6-3.5"/><path d="M2.5 12h19M12 2.5v19" opacity=".45"/></svg>
+                    </button>
+                </div>
             </div>
 
             <div class="progress" aria-hidden="true"><div id="progress-fill" class="progress-fill"></div></div>
@@ -122,6 +125,13 @@
                 </div>
             </div>
         </section>
+
+        <!-- How-to popup: shown the first time each kind of answer input appears, and from the ? button -->
+        <dialog id="help" class="help" aria-labelledby="help-title">
+            <h2 id="help-title"></h2>
+            <ul id="help-list"></ul>
+            <button id="help-close" type="button" class="primary">Got it</button>
+        </dialog>
 
         <!-- Session summary -->
         <section id="summary" class="screen" hidden>

@@ -3,7 +3,8 @@
 // or by tapping a value. Only the top of the ring shows, so labels are never upside down.
 
 // items: [{ key, text, render: () => Node }] (text is what screen readers announce), onChange(index) fires whenever the selected item changes.
-export function createWheel(items, { label = 'Answer', onChange = () => {} } = {}) {
+// verticalKeys: false leaves the up/down arrows free for the page to use.
+export function createWheel(items, { label = 'Answer', onChange = () => {}, verticalKeys = true } = {}) {
   const n = items.length;
   const slice = 360 / n;
   let index = 0;
@@ -87,8 +88,8 @@ export function createWheel(items, { label = 'Answer', onChange = () => {} } = {
   }
 
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); step(-1); }
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); step(1); }
+    if (e.key === 'ArrowLeft' || (verticalKeys && e.key === 'ArrowDown')) { e.preventDefault(); step(-1); }
+    if (e.key === 'ArrowRight' || (verticalKeys && e.key === 'ArrowUp')) { e.preventDefault(); step(1); }
   });
 
   // Drag: the ring follows the pointer's angle around the hub, then snaps to the nearest value.

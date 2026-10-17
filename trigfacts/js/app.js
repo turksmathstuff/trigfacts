@@ -3,9 +3,9 @@
 
 import {
   PAD_MAGNITUDES, GRID_ANGLES, SIGNED_ANGLES, INVERSE_RANGES, valueKey,
-  value, negate, isSignable, valueApprox, trigOf, pointOf, pointKey, angleTex, valueTex, pointTex,
+  value, negate, isSignable, valueApprox, trigOf, angleTex, valueTex,
 } from './trig-data.js';
-import { FAMILIES, MODES, Dealer, correctAnswer, promptOf, answerTex } from './questions.js';
+import { FAMILIES, MODES, SIN_COS_VALUES, Dealer, correctAnswer, promptOf, answerTex } from './questions.js';
 import { checkAnswer } from './check.js';
 import { load, save, recordResult, emptyStats } from './storage.js';
 import { createCircle } from './circle.js';
@@ -221,7 +221,7 @@ $('quit-btn').addEventListener('click', () => {
 });
 
 function emptySelection(type) {
-  if (type === 'point') return { x: null, y: null, active: 'x', last: null };
+  if (type === 'equation') return { fn: 'sin', v: null };
   if (type === 'signedAngle') return { t: null, neg: false };
   return null;
 }
@@ -238,13 +238,14 @@ function nextQuestion() {
   $('feedback').replaceChildren();
   $('feedback').className = 'feedback';
   $('stage').dataset.status = '';
+  $('stage').classList.toggle('circle-question', type === 'equation');
   document.querySelectorAll('.flash').forEach((n) => n.classList.remove('is-on', 'is-correct', 'is-wrong'));
   $('check-btn').classList.remove('is-waiting');
 
-  // Unit circle: show the given angle or point; selected angles are drawn as the student picks.
+  // Unit circle: show the given angle or line; selected angles are drawn as the student picks.
   circle.setStatus(null);
   circle.setRange(null);
-  circle.setGiven(type === 'angle' ? GRID_ANGLES.find((t) => sameP(pointOf(t), q.point)) : null);
+  circle.setLine(type === 'equation' ? q.fn : null, q.input);
   circle.setAngle(q.angle ?? null, { fromZero: true });
 
   showPad(type);
@@ -252,20 +253,23 @@ function nextQuestion() {
   updateMeters();
 }
 
-const sameP = (a, b) => pointKey(a) === pointKey(b);
+let padKey = null; // which pad is on screen
 
 function showPad(type) {
-  const kind = type === 'point' ? 'value' : type;
   const useWheel = data.settings.input === 'wheel';
-  const key = useWheel ? `${kind}Wheel` : kind;
+  const key = useWheel ? `${type}Wheel` : type;
   if (!pads[key]) {
     if (useWheel) {
-      wheels[key] = buildWheel(kind);
-      pads[key] = wheels[key].el;
+      wheels[key] = buildWheel(type);
+      pads[key] = type === 'equation' ? withFnToggle(wheels[key].el) : wheels[key].el;
+    } else if (type === 'signedAngle') {
+      pads[key] = buildAnglePad();
     } else {
-      pads[key] = kind === 'value' ? buildValuePad() : buildAnglePad(kind === 'signedAngle');
+      const pad = buildValuePad(type === 'equation' ? SIN_COS_VALUES : WHEEL_VALUES);
+      pads[key] = type === 'equation' ? withFnToggle(pad) : pad;
     }
   }
+  padKey = key;
   $('pad').replaceChildren(pads[key]);
   for (const b of pads[key].querySelectorAll('button')) b.disabled = false;
   const wheel = wheels[key];
@@ -273,7 +277,72 @@ function showPad(type) {
     wheel.setDisabled(false);
     wheel.setIndex(wheel.indexOf('0')); // every question starts the wheel at 0
   }
+  if (!data.settings.seenHelp[key]) openHelp(key);
 }
+
+// ---------- how-to popup ----------
+
+// What to do with each pad, keyed like pads. Controls only, never hints about the math.
+const KEYS = (text) => `<span class="keys">Keyboard: ${text}</span>`;
+const CHECK = 'Press <b>Check</b> when it’s right.';
+const HELP = {
+  valueWheel: { title: 'Turning the dial', items: [
+    'Turn the dial until your answer sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
+    CHECK,
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+  ] },
+  equationWheel: { title: 'Naming the line', items: [
+    'Pick <b>sin θ</b> or <b>cos θ</b> with the switch above the dial.',
+    'Turn the dial until the value sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
+    CHECK,
+    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+  ] },
+  signedAngleWheel: { title: 'Turning the angle dial', items: [
+    'Turn the dial until your angle sits in the blue window. It runs from −5π/6 up to π, so the negative angles are on it too.',
+    CHECK,
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> jumps to the opposite angle, <kbd>Enter</kbd> checks.'),
+  ] },
+  value: { title: 'Picking a value', items: [
+    'Tap the exact value. Each negative sits right under its positive.',
+    CHECK,
+    KEYS('<kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+  ] },
+  equation: { title: 'Naming the line', items: [
+    'Pick <b>sin θ</b> or <b>cos θ</b>, then tap the value.',
+    CHECK,
+    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+  ] },
+  signedAngle: { title: 'Picking an angle', items: [
+    'Tap an angle. Tap <b>+/−</b> to make it negative.',
+    CHECK,
+    KEYS('<kbd>-</kbd> makes the angle negative, <kbd>Enter</kbd> checks.'),
+  ] },
+};
+
+let helpOpenedAt = 0;
+
+function openHelp(key = padKey) {
+  const help = HELP[key];
+  if (!help || $('help').open) return;
+  $('help-title').textContent = help.title;
+  $('help-list').innerHTML = help.items.map((item) => `<li>${item}</li>`).join('');
+  data.settings.seenHelp = { ...data.settings.seenHelp, [key]: true };
+  persist();
+  helpOpenedAt = Date.now();
+  $('help').showModal();
+}
+
+$('help-btn').addEventListener('click', () => openHelp());
+$('help-close').addEventListener('click', () => $('help').close());
+$('help').addEventListener('click', (e) => {
+  // A click outside the box (on the backdrop) closes it too.
+  const r = $('help').getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) $('help').close();
+});
+$('help').addEventListener('close', () => {
+  if (session) session.startedAt += Date.now() - helpOpenedAt; // reading the help doesn't count against the clock
+  activeWheel()?.el.focus({ preventScroll: true });
+});
 
 // ---------- wheel input ----------
 
@@ -286,42 +355,39 @@ const WHEEL_VALUES = (() => {
 })();
 
 // The dial on screen right now, or null when the pad is buttons.
-function activeWheel() {
-  if (!session) return null;
-  return Object.values(wheels).find((w) => $('pad').firstChild === w.el) ?? null;
-}
+const activeWheel = () => (session && wheels[padKey]) || null;
 
-// kind: 'value' (exact values), 'angle' (0 to 11π/6), or 'signedAngle' (−5π/6 to π, for inverse trig).
-function buildWheel(kind) {
-  if (kind === 'value') {
-    const items = WHEEL_VALUES.map((v) => ({
-      key: valueKey(v),
-      text: texToText(valueTex(v)),
-      render: () => (v.mag === 'undef'
-        ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
-        : math(valueTex(v))),
-    }));
-    return createWheel(items, { label: 'Exact value', onChange: (i) => wheelChanged(WHEEL_VALUES[i]) });
+// Value questions get every exact value; line questions only the sine/cosine values, and
+// leave the up/down arrows for switching between sin θ and cos θ. Inverse trig turns
+// through −5π/6 to π.
+function buildWheel(type) {
+  if (type === 'signedAngle') {
+    const items = SIGNED_ANGLES.map((t) => ({ key: String(t), text: texToText(angleTex(t)), render: () => math(angleTex(t)) }));
+    return createWheel(items, { label: 'Angle', onChange: (i) => wheelChanged(SIGNED_ANGLES[i]) });
   }
-  const angles = kind === 'angle' ? GRID_ANGLES : SIGNED_ANGLES;
-  const items = angles.map((t) => ({ key: String(t), text: texToText(angleTex(t)), render: () => math(angleTex(t)) }));
-  return createWheel(items, { label: 'Angle', onChange: (i) => wheelChanged(angles[i]) });
+  const values = type === 'equation' ? SIN_COS_VALUES : WHEEL_VALUES;
+  const items = values.map((v) => ({
+    key: valueKey(v),
+    text: texToText(valueTex(v)),
+    render: () => (v.mag === 'undef'
+      ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
+      : math(valueTex(v))),
+  }));
+  return createWheel(items, { label: 'Exact value', onChange: (i) => wheelChanged(values[i]), verticalKeys: type !== 'equation' });
 }
 
-// v is an exact value for value/point questions, or an angle in twelfths for angle questions.
+// v is an exact value, or an angle in twelfths for inverse trig.
 function wheelChanged(v) {
   if (!session || session.checked) return;
-  const s = session.sel;
-  if (session.type === 'point') {
-    s[s.active] = v;
-    s.last = s.active;
+  if (session.type === 'equation') {
+    session.sel.v = v;
   } else if (session.type === 'signedAngle') {
     session.sel = { t: Math.abs(v), neg: v < 0 };
+    circle.setAngle(currentAnswer());
   } else {
     session.sel = v;
   }
   renderSelection();
-  if (session.type === 'angle' || session.type === 'signedAngle') circle.setAngle(currentAnswer());
 }
 
 function setWheelTo(key) {
@@ -329,30 +395,43 @@ function setWheelTo(key) {
   wheel.setIndex(wheel.indexOf(key));
 }
 
-// With the wheel, Enter/Check on x locks it in and moves on to y.
-const lockingX = () => !!activeWheel() && session.type === 'point' && session.sel.active === 'x';
-
-function lockIn() {
-  if (lockingX()) {
-    session.sel.active = 'y';
-    setWheelTo(valueKey(session.sel.y ?? value('0')));
-    activeWheel().el.focus({ preventScroll: true });
-    return;
+// sin θ / cos θ picker above a line question's pad. The up and down arrows switch it too.
+function withFnToggle(pad) {
+  const wrap = document.createElement('div');
+  const toggle = document.createElement('div');
+  toggle.className = 'segmented fn-toggle';
+  for (const fn of ['sin', 'cos']) {
+    const b = button('', () => setFn(fn), math(`${fnTex[fn]}\\theta`));
+    b.dataset.fn = fn;
+    toggle.append(b);
   }
-  check();
+  wrap.append(toggle, pad);
+  return wrap;
 }
 
-// Two rows of exact values: 0 and the positives on top; undefined and the negatives below,
-// so each negative sits directly under its positive.
-function buildValuePad() {
-  const signed = PAD_MAGNITUDES.filter((m) => m !== '0' && m !== 'undef');
+function setFn(fn) {
+  if (session.checked || session.type !== 'equation') return;
+  session.sel.fn = fn;
+  renderSelection();
+}
+
+// Two rows of the offered values: 0 and the positives on top; undefined (when offered) and the
+// negatives below, so each negative sits directly under its positive.
+function buildValuePad(values) {
+  const offered = new Set(values.map(valueKey));
+  const positives = PAD_MAGNITUDES.filter((m) => m !== '0' && m !== 'undef' && offered.has(m)).map((m) => value(m));
   const rows = [
-    [value('0'), ...signed.map((m) => value(m, 1))],
-    [value('undef'), ...signed.map((m) => value(m, -1))],
+    [value('0'), ...positives],
+    [offered.has('undef') ? value('undef') : null, ...positives.map(negate)],
   ];
   const grid = document.createElement('div');
-  grid.className = 'pad-grid cols-7 value-pad';
+  grid.className = 'pad-grid value-pad';
+  grid.style.gridTemplateColumns = `repeat(${rows[0].length}, 1fr)`;
   for (const v of rows.flat()) {
+    if (!v) {
+      grid.append(document.createElement('span'));
+      continue;
+    }
     const label = v.mag === 'undef' ? 'undef' : math(valueTex(v));
     const b = button('pad-btn', () => pickValue(v), label);
     b.dataset.value = valueKey(v);
@@ -365,7 +444,7 @@ function buildValuePad() {
   return grid;
 }
 
-function buildAnglePad(withSign) {
+function buildAnglePad() {
   const wrap = document.createElement('div');
   const grid = document.createElement('div');
   grid.className = 'pad-grid cols-4';
@@ -374,38 +453,22 @@ function buildAnglePad(withSign) {
     b.dataset.angle = t;
     grid.append(b);
   }
-  wrap.append(grid);
-  if (withSign) {
-    const sign = signButton();
-    sign.classList.add('sign-wide');
-    wrap.append(sign);
-  }
+  const sign = button('pad-btn sign-btn sign-wide', toggleSign, '+/−');
+  sign.setAttribute('aria-label', 'Toggle negative');
+  wrap.append(grid, sign);
   return wrap;
-}
-
-function signButton() {
-  const b = button('pad-btn sign-btn', toggleSign, '+/−');
-  b.setAttribute('aria-label', 'Toggle negative');
-  return b;
 }
 
 function pickValue(v) {
   if (session.checked) return;
-  if (session.type === 'point') {
-    const s = session.sel;
-    s[s.active] = v;
-    s.last = s.active;
-    if (s.active === 'x') s.active = 'y';
-  } else {
-    session.sel = v;
-  }
+  if (session.type === 'equation') session.sel.v = v;
+  else session.sel = v;
   renderSelection();
 }
 
 function pickAngle(t) {
   if (session.checked) return;
-  if (session.type === 'signedAngle') session.sel = { t, neg: false };
-  else session.sel = t;
+  session.sel = { t, neg: false };
   renderSelection();
   circle.setAngle(currentAnswer());
 }
@@ -413,90 +476,61 @@ function pickAngle(t) {
 function toggleSign() {
   if (session.checked) return;
   const s = session.sel;
-  if (activeWheel()) {
-    if (session.type === 'signedAngle') {
+  if (session.type === 'signedAngle') {
+    if (activeWheel()) {
       // Jump to the opposite angle when the dial has it (π and 0 have no partner).
-      if (activeWheel().indexOf(String(-currentAnswer())) >= 0) setWheelTo(String(-currentAnswer()));
-    } else if (session.type !== 'angle') {
-      const v = session.type === 'point' ? s[s.active] : s;
-      if (v && isSignable(v)) setWheelTo(valueKey(negate(v)));
+      const key = String(-currentAnswer());
+      if (activeWheel().indexOf(key) >= 0) setWheelTo(key);
+    } else if (s.t) {
+      s.neg = !s.neg;
+      circle.setAngle(currentAnswer());
+      renderSelection();
     }
     return;
   }
-  if (session.type === 'value') {
-    if (s && isSignable(s)) session.sel = negate(s);
-  } else if (session.type === 'point') {
-    if (s.last && s[s.last] && isSignable(s[s.last])) s[s.last] = negate(s[s.last]);
-  } else if (session.type === 'signedAngle') {
-    if (s.t) {
-      s.neg = !s.neg;
-      circle.setAngle(currentAnswer());
-    }
-  }
-  renderSelection();
-}
-
-function selectSlot(slot) {
-  if (session.checked) return;
-  session.sel.active = slot;
-  session.sel.last = slot;
-  if (activeWheel()) setWheelTo(valueKey(session.sel[slot] ?? value('0')));
-  renderSelection();
+  const v = session.type === 'equation' ? s.v : s;
+  if (!v || !isSignable(v)) return;
+  if (activeWheel()) setWheelTo(valueKey(negate(v)));
+  else pickValue(negate(v));
 }
 
 function currentAnswer() {
   const s = session.sel;
   switch (session.type) {
-    case 'point': return s.x && s.y ? { x: s.x, y: s.y } : null;
+    case 'equation': return s.v ? { fn: s.fn, v: s.v } : null;
     case 'signedAngle': return s.t === null ? null : (s.neg ? -s.t : s.t);
     default: return s;
   }
 }
 
-function slotContent(v) {
-  return v ? math(valueTex(v)) : Object.assign(document.createElement('span'), { className: 'blank', textContent: '?' });
-}
-
 function renderSelection() {
-  const box = $('answer');
-  box.replaceChildren();
   const s = session.sel;
+  const a = currentAnswer();
+  const label = Object.assign(document.createElement('span'), { className: 'answer-label', textContent: 'Your answer' });
+  let shown;
+  if (a !== null) shown = math(answerTex(session.question, a));
+  else if (session.type === 'equation') shown = math(`${fnTex[s.fn]}\\theta = \\,?`);
+  else shown = Object.assign(document.createElement('span'), { className: 'blank', textContent: '?' });
+  shown.classList.add('answer-value');
+  $('answer').replaceChildren(label, shown);
 
-  if (session.type === 'point') {
-    const slot = (name) => {
-      const b = button(s[name] ? 'slot filled' : 'slot', () => selectSlot(name), slotContent(s[name]));
-      b.setAttribute('aria-label', `${name === 'x' ? 'x' : 'y'} coordinate`);
-      b.setAttribute('aria-pressed', String(!session.checked && s.active === name));
-      b.disabled = session.checked;
-      return b;
-    };
-    box.append(paren('('), slot('x'), paren(','), slot('y'), paren(')'));
-  } else {
-    const label = Object.assign(document.createElement('span'), { className: 'answer-label', textContent: 'Your answer' });
-    const a = currentAnswer();
-    const shown = a === null ? slotContent(null) : math(answerTex(session.question, a));
-    shown.classList.add('answer-value');
-    box.append(label, shown);
-  }
-
-  // Highlight the pressed pad button.
+  // Highlight the pressed pad buttons.
   const pad = $('pad');
+  const v = session.type === 'equation' ? s.v : session.type === 'value' ? s : null;
   for (const b of pad.querySelectorAll('[data-value]')) {
-    b.setAttribute('aria-pressed', String(session.type === 'value' && !!s && valueKey(s) === b.dataset.value));
+    b.setAttribute('aria-pressed', String(!!v && valueKey(v) === b.dataset.value));
   }
   for (const b of pad.querySelectorAll('[data-angle]')) {
-    const t = session.type === 'signedAngle' ? s.t : s;
-    b.setAttribute('aria-pressed', String(t === Number(b.dataset.angle)));
+    b.setAttribute('aria-pressed', String(s.t === Number(b.dataset.angle)));
+  }
+  for (const b of pad.querySelectorAll('[data-fn]')) {
+    b.setAttribute('aria-pressed', String(s.fn === b.dataset.fn));
   }
   const sign = pad.querySelector('.sign-btn');
-  if (sign) sign.setAttribute('aria-pressed', String(session.type === 'signedAngle' && s.neg));
+  if (sign) sign.setAttribute('aria-pressed', String(s.neg));
 
-  $('check-btn').disabled = !session.checked && currentAnswer() === null && !lockingX();
-  if (!session.checked) $('check-btn').textContent = lockingX() ? 'Lock in x →' : 'Check';
-}
-
-function paren(text) {
-  return Object.assign(document.createElement('span'), { className: 'paren', textContent: text });
+  $('check-btn').disabled = !session.checked && a === null;
+  if (!session.checked) $('check-btn').textContent = 'Check';
 }
 
 function updateMeters() {
@@ -524,7 +558,7 @@ function check() {
   $('stage').dataset.status = result.correct ? 'correct' : 'wrong';
   circle.setStatus(result.correct ? 'correct' : 'wrong');
   if (session.type === 'signedAngle') circle.setRange(INVERSE_RANGES[q.fn]);
-  if (!result.correct && (session.type === 'angle' || session.type === 'signedAngle')) {
+  if (!result.correct && session.type === 'signedAngle') {
     circle.setAngle(correctAnswer(q));
   }
 
@@ -582,8 +616,8 @@ function renderFeedback(q, answer, result) {
     );
   } else if (result.reason === 'wrongValue') {
     why.append('Your angle gives ', math(`${fnTex[q.fn]}\\!\\left(${angleTex(answer)}\\right) = ${valueTex(trigOf(answer)[q.fn])}`), '.');
-  } else if (session.type === 'angle') {
-    why.append('Your angle ', math(angleTex(answer)), ' lands at ', math(pointTex(pointOf(answer))), '.');
+  } else if (result.reason === 'wrongFunction') {
+    why.append(q.fn === 'cos' ? 'A vertical line fixes x, and x = ' : 'A horizontal line fixes y, and y = ', math(`${fnTex[q.fn]}\\theta`), '.');
   }
   if (why.childNodes.length) fb.append(why);
 }
@@ -596,14 +630,17 @@ function advance() {
 }
 
 $('check-btn').addEventListener('click', () => {
-  if (!session.checked) lockIn();
+  if (!session.checked) check();
 });
 
 document.addEventListener('keydown', (e) => {
-  if (!session || $('practice').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!session || $('practice').hidden || $('help').open || e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && activeWheel() && !e.target.closest('.dial')) {
     e.preventDefault();
     activeWheel().step(e.key === 'ArrowLeft' ? -1 : 1);
+  } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && session.type === 'equation') {
+    e.preventDefault();
+    setFn(session.sel.fn === 'sin' ? 'cos' : 'sin');
   } else if (e.key === 'Enter' && (e.target.closest('.dial') || !e.target.closest('button:not(#check-btn)'))) {
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();
@@ -631,7 +668,7 @@ function showSummary() {
   for (const r of missed) {
     const li = document.createElement('li');
     const prompt = promptOf(r.question);
-    const ask = math(prompt.tex);
+    const ask = math(prompt.reviewTex ?? prompt.tex);
     const right = math(answerTex(r.question, correctAnswer(r.question)), 'm sum-right');
     const theirs = math(answerTex(r.question, r.answer), 'm sum-theirs');
     const q = Object.assign(document.createElement('span'), { className: 'sum-q' });

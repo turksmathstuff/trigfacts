@@ -3,7 +3,8 @@
 
 const KEY = 'turksmathstuff.trigfacts.v1';
 
-export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, input: 'wheel', theme: null };
+// seenHelp: which answer inputs have already shown their how-to popup (keyed like app.js's pads).
+export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, input: 'wheel', theme: null, seenHelp: {} };
 
 export function emptyStats() {
   return { attempted: 0, correct: 0, streak: 0, bestStreak: 0, families: {}, facts: {} };

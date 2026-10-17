@@ -1,7 +1,7 @@
-// Unit-circle diagram (SVG) with a rotating radius. Deliberately unlabeled so it never
-// gives away an answer; it only shows where an angle points.
+// Unit-circle diagram (SVG) with a rotating radius, or a line through the circle with the
+// points it crosses lit up. Deliberately unlabeled so it never gives away an answer.
 
-import { GRID_ANGLES, angleRadians } from './trig-data.js';
+import { GRID_ANGLES, angleRadians, trigOf, valuesEqual, valueApprox } from './trig-data.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const ARC_R = 0.24;   // radius of the small "angle swept" arc
@@ -38,10 +38,11 @@ export function createCircle(container) {
     const [x, y] = xy(angleRadians(t));
     el('circle', { cx: x, cy: y, r: 0.035, class: 'uc-tick' }, svg);
   }
+  const line = el('line', { class: 'uc-line' }, svg);
+  const hits = el('g', {}, svg);
   const sweep = el('path', { class: 'uc-sweep', d: '' }, svg);
   const radius = el('line', { x1: 0, y1: 0, x2: 1, y2: 0, class: 'uc-radius' }, svg);
   const target = el('circle', { cx: 1, cy: 0, r: 0.075, class: 'uc-point' }, svg);
-  const given = el('circle', { cx: 1, cy: 0, r: 0.085, class: 'uc-given' }, svg);
   el('circle', { cx: 0, cy: 0, r: 0.03, class: 'uc-center' }, svg);
 
   let current = 0; // radians currently drawn
@@ -90,13 +91,19 @@ export function createCircle(container) {
       frame = requestAnimationFrame(step);
     },
 
-    // Mark a given point (for point → angle questions), or hide it with null.
-    setGiven(t) {
-      setVisible(given, t !== null && t !== undefined);
-      if (t === null || t === undefined) return;
-      const [x, y] = xy(angleRadians(t));
-      given.setAttribute('cx', x);
-      given.setAttribute('cy', y);
+    // Draw the line cos θ = v (vertical, x = v) or sin θ = v (horizontal, y = v) and light up
+    // the standard-angle points on it. Pass null to clear.
+    setLine(fn, v) {
+      hits.replaceChildren();
+      setVisible(line, !!fn);
+      if (!fn) return;
+      const c = valueApprox(v);
+      const [x1, y1, x2, y2] = fn === 'cos' ? [c, -1.18, c, 1.18] : [-1.18, -c, 1.18, -c];
+      Object.entries({ x1, y1, x2, y2 }).forEach(([k, n]) => line.setAttribute(k, n));
+      for (const t of GRID_ANGLES.filter((a) => valuesEqual(trigOf(a)[fn], v))) {
+        const [x, y] = xy(angleRadians(t));
+        el('circle', { cx: x, cy: y, r: 0.07, class: 'uc-hit' }, hits);
+      }
     },
 
     // Shade an inverse-trig principal range { min, max, open } (twelfths of π), or clear it.

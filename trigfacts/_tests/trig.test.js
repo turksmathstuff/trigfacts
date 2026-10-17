@@ -8,7 +8,7 @@ import {
   STANDARD_ANGLES, GRID_ANGLES, SIGNED_ANGLES, value, valueKey, valueApprox, negate, trigOf, pointOf,
   principalValue, inverseInputs, inPrincipalRange, angleTex, angleRadians, parseValueKey,
 } from '../js/trig-data.js';
-import { FAMILIES, MODES, Dealer, questionsFor, correctAnswer, promptOf } from '../js/questions.js';
+import { FAMILIES, MODES, SIN_COS_VALUES, Dealer, questionsFor, correctAnswer, promptOf } from '../js/questions.js';
 import { checkAnswer } from '../js/check.js';
 import { load, save, recordResult, emptyStats } from '../js/storage.js';
 
@@ -110,7 +110,7 @@ test('inverse inputs cover exactly the standard values', () => {
 // ---------- questions ----------
 
 test('question pools have the expected sizes and unique ids', () => {
-  const sizes = { point: 17, angle: 16, sin: 17, cos: 17, tan: 17, asin: 9, acos: 9, atan: 7 };
+  const sizes = { line: 18, sin: 17, cos: 17, tan: 17, asin: 9, acos: 9, atan: 7 };
   for (const [family, n] of Object.entries(sizes)) {
     const qs = questionsFor(family);
     assert.equal(qs.length, n, family);
@@ -124,7 +124,8 @@ test('the correct answer to every question is accepted', () => {
       const a = correctAnswer(q);
       assert.ok(a !== undefined && a !== null, q.id);
       assert.equal(checkAnswer(q, a).correct, true, q.id);
-      assert.ok(promptOf(q).tex.length > 0);
+      const p = promptOf(q);
+      assert.ok((p.reviewTex ?? p.tex).length > 0, q.id);
     }
   }
 });
@@ -174,24 +175,15 @@ test('value answers compare sign and magnitude', () => {
   assert.equal(checkAnswer(q, null).correct, false);
 });
 
-test('point answers need both coordinates right', () => {
-  const q = find('point', 'point:10'); // (−√3/2, 1/2)
-  assert.equal(checkAnswer(q, { x: v('-r3/2'), y: v('1/2') }).correct, true);
-  assert.equal(checkAnswer(q, { x: v('r3/2'), y: v('1/2') }).correct, false);
-  assert.equal(checkAnswer(q, { x: v('1/2'), y: v('-r3/2') }).correct, false);
-});
-
-test('point → angle accepts both 0 and 2π for (1, 0)', () => {
-  const q = find('angle', 'angle:0');
-  assert.equal(checkAnswer(q, 0).correct, true);
-  assert.equal(checkAnswer(q, 24).correct, true);
-  assert.equal(checkAnswer(q, 12).correct, false);
-});
-
-test('point → angle rejects angles outside the first revolution', () => {
-  const q = find('angle', 'angle:2'); // (√3/2, 1/2)
-  assert.equal(checkAnswer(q, 2).correct, true);
-  assert.equal(checkAnswer(q, -22).correct, false);
+test('line questions: x = v is cos θ = v, y = v is sin θ = v', () => {
+  assert.deepEqual(SIN_COS_VALUES.map(valueKey), ['-1', '-r3/2', '-r2/2', '-1/2', '0', '1/2', 'r2/2', 'r3/2', '1']);
+  const q = find('line', 'line:cos:1/2');                // vertical line x = 1/2
+  assert.equal(promptOf(q).reviewTex, 'x = \\frac{1}{2}');
+  assert.deepEqual(checkAnswer(q, { fn: 'cos', v: v('1/2') }), { correct: true, reason: 'correct' });
+  assert.deepEqual(checkAnswer(q, { fn: 'sin', v: v('1/2') }), { correct: false, reason: 'wrongFunction' });
+  assert.deepEqual(checkAnswer(q, { fn: 'cos', v: v('-1/2') }), { correct: false, reason: 'wrong' });
+  assert.equal(checkAnswer(q, { fn: 'cos', v: null }).correct, false);
+  assert.equal(promptOf(find('line', 'line:sin:-r2/2')).reviewTex, 'y = -\\frac{\\sqrt{2}}{2}');
 });
 
 test('inverse answers: right value but outside the principal range', () => {
@@ -247,8 +239,7 @@ test('mixed mode is balanced across its seven sources', () => {
   const counts = {};
   for (let i = 0; i < 140; i++) {
     const f = d.next().family;
-    const source = f === 'point' || f === 'angle' ? 'circle' : f;
-    counts[source] = (counts[source] || 0) + 1;
+    counts[f] = (counts[f] || 0) + 1;
   }
   assert.equal(Object.keys(counts).length, 7);
   for (const n of Object.values(counts)) assert.equal(n, 20); // the bag guarantees exact balance
