@@ -1,1 +1,8 @@
 .DS_Store
+
+# Local notes, kept on this computer only (not published)
+initial_plan.md
+CLAUDE.md
+
+# Claude Code local settings
+.claude/
