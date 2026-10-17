@@ -4,6 +4,8 @@
 
 // items: [{ key, text, render: () => Node }] (text is what screen readers announce), onChange(index) fires whenever the selected item changes.
 // verticalKeys: false leaves the up/down arrows free for the page to use.
+// clear() rests the dial on a value without choosing it; turning the dial or tapping a value
+// (even the one already in the window) chooses one.
 export function createWheel(items, { label = 'Answer', onChange = () => {}, verticalKeys = true } = {}) {
   const n = items.length;
   const slice = 360 / n;
@@ -25,7 +27,7 @@ export function createWheel(items, { label = 'Answer', onChange = () => {}, vert
     node.style.setProperty('--a', `${i * slice}deg`);
     node.append(item.render());
     node.addEventListener('click', () => {
-      if (!dragged) step(offset(i));
+      if (!dragged && !disabled) setIndex(i);
     });
     ring.append(node);
     return node;
@@ -68,16 +70,20 @@ export function createWheel(items, { label = 'Answer', onChange = () => {}, vert
     return o;
   }
 
+  let unset = false; // resting on a value that hasn't been chosen yet
+
   function render() {
     ring.style.transform = `rotate(${rotation}deg)`;
     nodes.forEach((node, i) => node.classList.toggle('is-selected', i === index));
-    root.setAttribute('aria-valuetext', items[index].text ?? nodes[index].textContent);
+    root.classList.toggle('is-unset', unset);
+    root.setAttribute('aria-valuetext', unset ? 'nothing chosen yet' : items[index].text ?? nodes[index].textContent);
   }
 
   function setIndex(i, { notify = true } = {}) {
     const target = ((i % n) + n) % n;
     rotation -= offset(target) * slice;
     index = target;
+    if (notify) unset = false;
     render();
     if (notify) onChange(index);
   }
@@ -142,6 +148,10 @@ export function createWheel(items, { label = 'Answer', onChange = () => {}, vert
     el: root,
     step,
     setIndex,
+    clear(i) {
+      unset = true;
+      setIndex(i, { notify: false });
+    },
     get index() { return index; },
     indexOf: (key) => items.findIndex((it) => it.key === key),
     setDisabled(on) {

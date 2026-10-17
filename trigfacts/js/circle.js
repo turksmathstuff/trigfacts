@@ -38,8 +38,27 @@ export function createCircle(container) {
     const [x, y] = xy(angleRadians(t));
     el('circle', { cx: x, cy: y, r: 0.035, class: 'uc-tick' }, svg);
   }
-  const line = el('line', { class: 'uc-line' }, svg);
-  const hits = el('g', {}, svg);
+  // A line through the circle with the standard-angle points on it marked: the question's line,
+  // and, after a wrong answer, the student's line.
+  function lineLayer(lineClass, hitClass) {
+    const line = el('line', { class: lineClass }, svg);
+    const hits = el('g', {}, svg);
+    // cos θ = v is the vertical line x = v; sin θ = v is the horizontal line y = v. null clears it.
+    return (fn, v) => {
+      hits.replaceChildren();
+      setVisible(line, !!fn);
+      if (!fn) return;
+      const c = valueApprox(v);
+      const [x1, y1, x2, y2] = fn === 'cos' ? [c, -1.18, c, 1.18] : [-1.18, -c, 1.18, -c];
+      Object.entries({ x1, y1, x2, y2 }).forEach(([k, n]) => line.setAttribute(k, n));
+      for (const t of GRID_ANGLES.filter((a) => valuesEqual(trigOf(a)[fn], v))) {
+        const [x, y] = xy(angleRadians(t));
+        el('circle', { cx: x, cy: y, r: 0.07, class: hitClass }, hits);
+      }
+    };
+  }
+  const guessLine = lineLayer('uc-guess', 'uc-guess-hit');
+  const questionLine = lineLayer('uc-line', 'uc-hit');
   const sweep = el('path', { class: 'uc-sweep', d: '' }, svg);
   const radius = el('line', { x1: 0, y1: 0, x2: 1, y2: 0, class: 'uc-radius' }, svg);
   const target = el('circle', { cx: 1, cy: 0, r: 0.075, class: 'uc-point' }, svg);
@@ -91,20 +110,11 @@ export function createCircle(container) {
       frame = requestAnimationFrame(step);
     },
 
-    // Draw the line cos θ = v (vertical, x = v) or sin θ = v (horizontal, y = v) and light up
-    // the standard-angle points on it. Pass null to clear.
-    setLine(fn, v) {
-      hits.replaceChildren();
-      setVisible(line, !!fn);
-      if (!fn) return;
-      const c = valueApprox(v);
-      const [x1, y1, x2, y2] = fn === 'cos' ? [c, -1.18, c, 1.18] : [-1.18, -c, 1.18, -c];
-      Object.entries({ x1, y1, x2, y2 }).forEach(([k, n]) => line.setAttribute(k, n));
-      for (const t of GRID_ANGLES.filter((a) => valuesEqual(trigOf(a)[fn], v))) {
-        const [x, y] = xy(angleRadians(t));
-        el('circle', { cx: x, cy: y, r: 0.07, class: 'uc-hit' }, hits);
-      }
-    },
+    // The question's line, with the points it crosses lit up. Pass null to clear.
+    setLine: questionLine,
+
+    // A wrong answer's line, drawn dashed. Pass null to clear.
+    setGuess: guessLine,
 
     // Shade an inverse-trig principal range { min, max, open } (twelfths of π), or clear it.
     setRange(r) {

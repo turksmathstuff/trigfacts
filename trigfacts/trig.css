@@ -115,6 +115,8 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 .primary:hover:not(:disabled) { background: var(--accent-hover); }
 .primary:active:not(:disabled) { transform: scale(0.99); }
 .primary:disabled { opacity: 0.4; cursor: default; }
+/* Check sits over the pad on phones, so when disabled it's solid grey rather than see-through. */
+.primary.big:disabled:not(.is-waiting) { opacity: 1; background: var(--key-border); color: var(--muted); box-shadow: none; }
 
 .ghost {
     min-height: 44px; padding: 8px 14px;
@@ -211,10 +213,11 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 .answer { grid-area: answer; }
 .feedback { grid-area: feedback; text-align: center; }
 .no-circle .stage { grid-template-columns: 1fr; grid-template-areas: "head" "answer" "feedback"; }
-/* Line questions are a picture, so the circle is the question: always shown, and bigger. */
-.stage.circle-question { grid-template-columns: 1fr; grid-template-areas: "circle" "head" "answer" "feedback"; justify-items: center; }
+/* Line questions are a picture, so the circle is the question: always shown, and bigger.
+   On phones it stays beside the question so the switch, dial, and Check still fit on screen. */
+.no-circle .stage.circle-question { grid-template-columns: auto 1fr; grid-template-areas: "circle head" "answer answer" "feedback feedback"; }
 .no-circle .stage.circle-question .circle-wrap { display: block; }
-.stage.circle-question .circle-wrap { width: min(62vw, 250px); }
+.stage.circle-question .circle-wrap { width: min(46vw, 200px); }
 .stage.circle-question .prompt { display: none; }
 .stage[data-status="correct"] { border-color: var(--success); }
 .stage[data-status="wrong"] { border-color: var(--error); }
@@ -356,6 +359,10 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
     transform: rotate(var(--a)) translateY(calc(var(--dial) * -0.405));
 }
 .dial-item.is-selected { color: var(--accent); font-weight: 700; }
+/* Nothing chosen yet: the window is dashed and the value under it isn't highlighted. */
+.dial.is-unset .dial-item.is-selected { color: var(--muted); font-weight: normal; }
+.dial.is-unset .dial-window { border-style: dashed; border-color: var(--muted); box-shadow: none; }
+.dial.is-unset .dial-window::after { border-top-color: var(--muted); }
 .dial-hub {
     position: absolute; left: 50%; top: calc(var(--dial) * 0.5);
     width: calc(var(--dial) * 0.58); height: calc(var(--dial) * 0.58);
@@ -394,9 +401,15 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
     .stage, .no-circle .stage { grid-template-columns: 1fr; grid-template-areas: "circle" "head" "answer" "feedback"; justify-items: center; padding: 20px; margin-bottom: 0; }
     .answer-label { display: block; }
     .circle-wrap { width: 230px; }
+    .no-circle .stage.circle-question { grid-template-columns: 1fr; grid-template-areas: "circle" "head" "answer" "feedback"; }
+    .stage.circle-question .circle-wrap { width: 250px; }
     .prompt { font-size: 2.2rem; }
 }
 @media (max-width: 759px) and (max-height: 760px) {
+    .dial { --dial: min(280px, calc(100vw - 48px)); }
+    .fn-toggle { margin-bottom: 8px; }
+    .fn-toggle button { min-height: 42px; }
+    .stage.circle-question .circle-wrap { width: min(40vw, 170px); }
     .pad-grid { gap: 6px; }
     .pad-btn { min-height: 52px; }
     .pad-grid.cols-4 .pad-btn { min-height: 46px; }
@@ -419,6 +432,8 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 .uc-radius { stroke: var(--accent); stroke-width: 0.035; stroke-linecap: round; }
 .uc-point { fill: var(--accent); }
 .uc-line { stroke: var(--neon); stroke-width: 0.025; stroke-linecap: round; opacity: 0.75; }
+.uc-guess { stroke: var(--error); stroke-width: 0.022; stroke-dasharray: 0.07 0.05; opacity: 0.9; }
+.uc-guess-hit { fill: var(--panel); stroke: var(--error); stroke-width: 0.025; }
 .uc-hit { fill: var(--neon); stroke: var(--panel); stroke-width: 0.02; filter: drop-shadow(0 0 0.06px var(--neon)) drop-shadow(0 0 0.05px var(--neon)); }
 .uc-range { fill: none; stroke: var(--success); stroke-width: 0.09; stroke-linecap: butt; opacity: 0.35; }
 .uc-end { fill: var(--success); }

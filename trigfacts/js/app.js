@@ -5,7 +5,7 @@ import {
   PAD_MAGNITUDES, GRID_ANGLES, SIGNED_ANGLES, INVERSE_RANGES, valueKey,
   value, negate, isSignable, valueApprox, trigOf, angleTex, valueTex,
 } from './trig-data.js';
-import { FAMILIES, MODES, SIN_COS_VALUES, Dealer, correctAnswer, promptOf, answerTex } from './questions.js';
+import { FAMILIES, MODES, SIN_COS_VALUES, Dealer, correctAnswer, promptOf, answerTex, equationTex, lineTex } from './questions.js';
 import { checkAnswer } from './check.js';
 import { load, save, recordResult, emptyStats } from './storage.js';
 import { createCircle } from './circle.js';
@@ -28,7 +28,7 @@ function texToText(tex) {
     .replace(/\\sqrt\{([^{}]*)\}/g, '√$1')
     .replace(/\\text\{([^{}]*)\}/g, '$1')
     .replace(/\^\{-1\}/g, '⁻¹')
-    .replace(/\\pi/g, 'π').replace(/\\theta/g, 'θ')
+    .replace(/\\pi/g, 'π').replace(/\\theta/g, 'θ').replace(/\\square/g, '□')
     .replace(/\\(left|right|!|,)/g, '').replace(/\\ /g, ' ')
     .replace(/\\(sin|cos|tan)/g, '$1')
     .replace(/-/g, '−');
@@ -216,7 +216,7 @@ $('quit-btn').addEventListener('click', () => {
 });
 
 function emptySelection(type) {
-  if (type === 'equation') return { fn: 'sin', v: null };
+  if (type === 'equation') return { fn: null, v: null };
   if (type === 'signedAngle') return { t: null, neg: false };
   return null;
 }
@@ -241,6 +241,7 @@ function nextQuestion() {
   circle.setStatus(null);
   circle.setRange(null);
   circle.setLine(type === 'equation' ? q.fn : null, q.input);
+  circle.setGuess(null);
   circle.setAngle(q.angle ?? null, { fromZero: true });
 
   showPad(type);
@@ -270,7 +271,7 @@ function showPad(type) {
   const wheel = wheels[key];
   if (wheel) {
     wheel.setDisabled(false);
-    wheel.setIndex(wheel.indexOf('0')); // every question starts the wheel at 0
+    wheel.clear(wheel.indexOf('0')); // every question starts the wheel resting on 0, with nothing chosen
   }
   if (!data.settings.seenHelp[key]) openHelp(key);
 }
@@ -473,6 +474,7 @@ function toggleSign() {
   const s = session.sel;
   if (session.type === 'signedAngle') {
     if (activeWheel()) {
+      if (currentAnswer() === null) return;
       // Jump to the opposite angle when the dial has it (π and 0 have no partner).
       const key = String(-currentAnswer());
       if (activeWheel().indexOf(key) >= 0) setWheelTo(key);
@@ -492,7 +494,7 @@ function toggleSign() {
 function currentAnswer() {
   const s = session.sel;
   switch (session.type) {
-    case 'equation': return s.v ? { fn: s.fn, v: s.v } : null;
+    case 'equation': return s.fn && s.v ? { fn: s.fn, v: s.v } : null;
     case 'signedAngle': return s.t === null ? null : (s.neg ? -s.t : s.t);
     default: return s;
   }
@@ -504,7 +506,7 @@ function renderSelection() {
   const label = Object.assign(document.createElement('span'), { className: 'answer-label', textContent: 'Your answer' });
   let shown;
   if (a !== null) shown = math(answerTex(session.question, a));
-  else if (session.type === 'equation') shown = math(`${fnTex[s.fn]}\\theta = \\,?`);
+  else if (session.type === 'equation') shown = math(`${s.fn ? `${fnTex[s.fn]}\\theta` : '\\square'} = ${s.v ? valueTex(s.v) : '\\,?'}`);
   else shown = Object.assign(document.createElement('span'), { className: 'blank', textContent: '?' });
   shown.classList.add('answer-value');
   $('answer').replaceChildren(label, shown);
@@ -553,6 +555,7 @@ function check() {
   $('stage').dataset.status = result.correct ? 'correct' : 'wrong';
   circle.setStatus(result.correct ? 'correct' : 'wrong');
   if (session.type === 'signedAngle') circle.setRange(INVERSE_RANGES[q.fn]);
+  if (!result.correct && session.type === 'equation') circle.setGuess(answer.fn, answer.v);
   if (!result.correct && session.type === 'signedAngle') {
     circle.setAngle(correctAnswer(q));
   }
@@ -611,8 +614,11 @@ function renderFeedback(q, answer, result) {
     );
   } else if (result.reason === 'wrongValue') {
     why.append('Your angle gives ', math(`${fnTex[q.fn]}\\!\\left(${angleTex(answer)}\\right) = ${valueTex(trigOf(answer)[q.fn])}`), '.');
-  } else if (result.reason === 'wrongFunction') {
-    why.append(q.fn === 'cos' ? 'A vertical line fixes x, and x = ' : 'A horizontal line fixes y, and y = ', math(`${fnTex[q.fn]}\\theta`), '.');
+  } else if (session.type === 'equation') {
+    if (result.reason === 'wrongFunction') {
+      why.append(q.fn === 'cos' ? 'A vertical line fixes x, and x = ' : 'A horizontal line fixes y, and y = ', math(`${fnTex[q.fn]}\\theta`), '. ');
+    }
+    why.append('Your answer ', math(equationTex(answer)), ' is the dashed line ', math(lineTex({ fn: answer.fn, input: answer.v })), '.');
   }
   if (why.childNodes.length) fb.append(why);
 }
@@ -635,8 +641,11 @@ document.addEventListener('keydown', (e) => {
     activeWheel().step(e.key === 'ArrowLeft' ? -1 : 1);
   } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && session.type === 'equation') {
     e.preventDefault();
-    setFn(session.sel.fn === 'sin' ? 'cos' : 'sin');
-  } else if (e.key === 'Enter' && (e.target.closest('.dial') || !e.target.closest('button:not(#check-btn)'))) {
+    // Before anything is picked, ↑ picks sin θ and ↓ picks cos θ; after that either one flips it.
+    const fn = session.sel.fn;
+    setFn(fn ? (fn === 'sin' ? 'cos' : 'sin') : (e.key === 'ArrowUp' ? 'sin' : 'cos'));
+  } else if (e.key === 'Enter' && (e.target.closest('#pad') || !e.target.closest('button:not(#check-btn)'))) {
+    // Enter checks even right after clicking a pad button (which keeps focus); Space still presses a focused button.
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();
   } else if (e.key === '-' || e.key === '_' || e.key === 'a' || e.key === 'A') {
