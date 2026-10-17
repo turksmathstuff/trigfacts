@@ -289,33 +289,33 @@ const HELP = {
   valueWheel: { title: 'Turning the dial', items: [
     'Turn the dial until your answer sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
     CHECK,
-    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
   ] },
   equationWheel: { title: 'Naming the line', items: [
     'Pick <b>sin θ</b> or <b>cos θ</b> with the switch above the dial.',
     'Turn the dial until the value sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
     CHECK,
-    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
   ] },
   signedAngleWheel: { title: 'Turning the angle dial', items: [
     'Turn the dial until your angle sits in the blue window. It runs from −5π/6 up to π, so the negative angles are on it too.',
     CHECK,
-    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> jumps to the opposite angle, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> jumps to the opposite angle, <kbd>Enter</kbd> checks.'),
   ] },
   value: { title: 'Picking a value', items: [
     'Tap the exact value. Each negative sits right under its positive.',
     CHECK,
-    KEYS('<kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
   ] },
   equation: { title: 'Naming the line', items: [
     'Pick <b>sin θ</b> or <b>cos θ</b>, then tap the value.',
     CHECK,
-    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>-</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
   ] },
   signedAngle: { title: 'Picking an angle', items: [
     'Tap an angle. Tap <b>+/−</b> to make it negative.',
     CHECK,
-    KEYS('<kbd>-</kbd> makes the angle negative, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>-</kbd> or <kbd>A</kbd> makes the angle negative, <kbd>Enter</kbd> checks.'),
   ] },
 };
 
@@ -644,7 +644,7 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && (e.target.closest('.dial') || !e.target.closest('button:not(#check-btn)'))) {
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();
-  } else if (e.key === '-' || e.key === '_') {
+  } else if (e.key === '-' || e.key === '_' || e.key === 'a' || e.key === 'A') {
     toggleSign();
   }
 });
