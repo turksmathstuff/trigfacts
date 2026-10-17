@@ -517,24 +517,18 @@ function check() {
     session.autoNext = setTimeout(() => { if (session === s) advance(); }, AUTO_NEXT_MS);
     return;
   }
-  // Wrong answers show red X's and the right answer, and Next stays locked for a moment
-  // so the correction actually gets read.
+  // Wrong answers show red X's and the right answer for a moment, then move on by themselves.
   flash('wrong');
   renderFeedback(q, answer, result);
   const btn = $('check-btn');
   btn.disabled = true;
   btn.classList.add('is-waiting');
   const s = session;
-  session.unlock = setTimeout(() => {
-    if (session !== s) return;
-    btn.disabled = false;
-    btn.classList.remove('is-waiting');
-    btn.focus({ preventScroll: true });
-  }, WRONG_WAIT_MS);
+  session.autoNext = setTimeout(() => { if (session === s) advance(); }, WRONG_WAIT_MS);
 }
 
 const AUTO_NEXT_MS = 700;
-const WRONG_WAIT_MS = 1500;
+const WRONG_WAIT_MS = 1200;
 
 function flash(kind) {
   for (const node of document.querySelectorAll('.flash')) {
@@ -576,7 +570,6 @@ function renderFeedback(q, answer, result) {
 
 function advance() {
   clearTimeout(session.autoNext);
-  clearTimeout(session.unlock);
   session.index++;
   if (session.index >= session.length) showSummary();
   else nextQuestion();
