@@ -423,6 +423,15 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 .sum-you { color: var(--muted); font-size: 0.8rem; margin-left: 6px; }
 .sum-theirs { color: var(--error); text-decoration: line-through; opacity: 0.8; }
 #sum-missed-wrap { margin-top: 20px; }
+.share { margin: 16px 0 4px; }
+.share-text {
+    margin: 0 auto; padding: 12px 16px; width: fit-content; max-width: 100%;
+    background: var(--key-bg); border: 1px solid var(--key-border); border-radius: 10px;
+    font-family: inherit; font-size: 1rem; line-height: 1.5; text-align: left; white-space: pre-wrap;
+    user-select: all; -webkit-user-select: all;
+}
+.share-actions { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.share-actions .ghost { min-width: 140px; }
 .sum-actions { display: grid; gap: 10px; margin-top: 8px; }
 .sum-actions .ghost { min-height: 52px; }
 

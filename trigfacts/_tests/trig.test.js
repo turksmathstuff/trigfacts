@@ -276,3 +276,34 @@ test('storage round-trips and survives bad data', () => {
   assert.equal(load(store).stats.attempted, 0);
   assert.doesNotThrow(() => save(data, { setItem() { throw new Error('quota'); } }));
 });
+
+// ---------- share summary ----------
+
+import { shareText, formatTime, bestRun } from '../js/share.js';
+
+test('time formatting', () => {
+  assert.equal(formatTime(0), '0:00');
+  assert.equal(formatTime(9_400), '0:09');
+  assert.equal(formatTime(102_000), '1:42');
+  assert.equal(formatTime(600_000), '10:00');
+});
+
+test('share text has score, time, rows of five, and streak', () => {
+  const marks = [1, 1, 1, 0, 1, 1, 1, 1, 1, 1].map((c) => ({ correct: !!c }));
+  assert.equal(bestRun(marks), 6);
+  assert.equal(shareText({ modeLabel: 'Trig Values', results: marks, elapsedMs: 102_000 }), [
+    'Trig Facts · Trig Values',
+    '9/10 in 1:42 ⏱️',
+    '🟩🟩🟩🟥🟩',
+    '🟩🟩🟩🟩🟩',
+    '🔥 Best streak: 6',
+    'turksmathstuff.com/trigfacts',
+  ].join('\n'));
+});
+
+test('perfect rounds get a trophy; short streaks are left off', () => {
+  const perfect = Array(10).fill({ correct: true });
+  assert.match(shareText({ modeLabel: 'Mixed Practice', results: perfect, elapsedMs: 60_000 }), /10\/10 in 1:00 ⏱️ 🏆/);
+  const choppy = [1, 0, 1, 1, 0, 1, 0, 0, 1, 0].map((c) => ({ correct: !!c }));
+  assert.doesNotMatch(shareText({ modeLabel: 'x', results: choppy, elapsedMs: 1 }), /streak/);
+});

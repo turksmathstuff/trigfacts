@@ -10,6 +10,7 @@ import { checkAnswer } from './check.js';
 import { load, save, recordResult, emptyStats } from './storage.js';
 import { createCircle } from './circle.js';
 import { createWheel } from './wheel.js';
+import { shareText, formatTime } from './share.js';
 
 const $ = (id) => document.getElementById(id);
 const fnTex = { sin: '\\sin', cos: '\\cos', tan: '\\tan' };
@@ -193,7 +194,7 @@ const pads = {}; // answer type → pad element, built once
 
 function startSession() {
   const { mode, length } = data.settings;
-  session = { mode, length, dealer: new Dealer(mode), index: 0, correct: 0, results: [] };
+  session = { mode, length, dealer: new Dealer(mode), index: 0, correct: 0, results: [], startedAt: Date.now() };
   $('mode-label').textContent = MODES[mode].label;
   applyCircleSetting();
   showScreen('practice');
@@ -597,6 +598,11 @@ function showSummary() {
   $('sum-score').textContent = `${session.correct} / ${n}`;
   $('sum-pct').textContent = pct(session.correct, n);
   $('sum-mode').textContent = MODES[session.mode].label;
+  const elapsedMs = Date.now() - session.startedAt;
+  $('sum-time').textContent = formatTime(elapsedMs);
+  $('share-text').textContent = shareText({ modeLabel: MODES[session.mode].label, results: session.results, elapsedMs });
+  $('copy-btn').textContent = 'Copy results';
+  $('share-btn').hidden = !navigator.share;
   const list = $('sum-missed');
   list.replaceChildren();
   const missed = session.results.filter((r) => !r.correct);
@@ -616,6 +622,28 @@ function showSummary() {
   }
   showScreen('summary');
 }
+
+$('copy-btn').addEventListener('click', async () => {
+  const text = $('share-text').textContent;
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch {
+    // Older browsers / insecure contexts: select the text so it can be copied by hand.
+    const range = document.createRange();
+    range.selectNodeContents($('share-text'));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    ok = document.execCommand?.('copy') ?? false;
+  }
+  $('copy-btn').textContent = ok ? 'Copied ✓' : 'Select and copy above';
+});
+
+$('share-btn').addEventListener('click', () => {
+  navigator.share({ text: $('share-text').textContent }).catch(() => {});
+});
 
 $('again-btn').addEventListener('click', () => startSession());
 $('modes-btn').addEventListener('click', () => {

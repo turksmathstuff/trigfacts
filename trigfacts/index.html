@@ -128,7 +128,14 @@
             <div class="card summary-card">
                 <p id="sum-mode" class="family-tag"></p>
                 <p class="sum-score" id="sum-score"></p>
-                <p class="muted">Accuracy <b id="sum-pct"></b></p>
+                <p class="muted">Accuracy <b id="sum-pct"></b> · Time <b id="sum-time"></b></p>
+                <div class="share">
+                    <pre id="share-text" class="share-text"></pre>
+                    <div class="share-actions">
+                        <button id="copy-btn" type="button" class="ghost">Copy results</button>
+                        <button id="share-btn" type="button" class="ghost" hidden>Share…</button>
+                    </div>
+                </div>
                 <div id="sum-missed-wrap">
                     <h2 class="label">Review these</h2>
                     <ul id="sum-missed" class="sum-missed"></ul>
