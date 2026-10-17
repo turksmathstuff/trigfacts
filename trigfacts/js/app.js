@@ -236,6 +236,7 @@ function nextQuestion() {
   $('feedback').replaceChildren();
   $('feedback').className = 'feedback';
   $('stage').dataset.status = '';
+  document.querySelectorAll('.flash').forEach((n) => n.classList.remove('is-on'));
 
   // Unit circle: show the given angle or point; selected angles are drawn as the student picks.
   circle.setStatus(null);
@@ -505,10 +506,28 @@ function check() {
   }
 
   renderSelection();
-  renderFeedback(q, answer, result);
   updateMeters();
   $('check-btn').textContent = session.index + 1 >= session.length ? 'See results' : 'Next →';
+
+  if (result.correct) {
+    // Right answers just flash a check and move on; pressing Next/Enter skips the wait.
+    flashCorrect();
+    const s = session;
+    session.autoNext = setTimeout(() => { if (session === s) advance(); }, AUTO_NEXT_MS);
+    return;
+  }
+  renderFeedback(q, answer, result);
   $('check-btn').focus({ preventScroll: true });
+}
+
+const AUTO_NEXT_MS = 700;
+
+function flashCorrect() {
+  for (const node of document.querySelectorAll('.flash')) {
+    node.classList.remove('is-on');
+    void node.offsetWidth; // restart the animation
+    node.classList.add('is-on');
+  }
 }
 
 function renderFeedback(q, answer, result) {
@@ -542,6 +561,7 @@ function renderFeedback(q, answer, result) {
 }
 
 function advance() {
+  clearTimeout(session.autoNext);
   session.index++;
   if (session.index >= session.length) showSummary();
   else nextQuestion();

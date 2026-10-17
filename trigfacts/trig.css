@@ -237,6 +237,26 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 
 @keyframes pop { 50% { transform: scale(1.06); } }
 
+/* green checks that flash on both sides of the card after a right answer */
+.stage { position: relative; }
+.flash {
+    position: absolute; top: 50%; width: 52px; height: 52px; margin-top: -26px;
+    display: grid; place-items: center; border-radius: 50%;
+    background: var(--success); color: var(--panel);
+    opacity: 0; pointer-events: none; z-index: 2;
+}
+.flash svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.flash-left { left: -10px; }
+.flash-right { right: -10px; }
+.flash.is-on { animation: flash 0.7s ease-out both; }
+@keyframes flash {
+    0% { opacity: 0; transform: scale(0.4); }
+    25% { opacity: 1; transform: scale(1.1); }
+    45% { transform: scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
 /* answer pads */
 .pad-grid { display: grid; gap: 8px; }
 .pad-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
@@ -388,4 +408,5 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
+    .flash.is-on { opacity: 1; }
 }
