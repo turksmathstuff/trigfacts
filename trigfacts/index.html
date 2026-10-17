@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trig Facts Practice</title>
+    <meta name="description" content="Practice exact unit-circle trig facts in radians: points, trig values, and inverse trig.">
+
+    <!-- Apply the saved theme before first paint to avoid a flash. -->
+    <script>
+        try {
+            var saved = JSON.parse(localStorage.getItem('turksmathstuff.trigfacts.v1'));
+            var theme = saved && saved.settings && saved.settings.theme;
+            if (theme) document.documentElement.dataset.theme = theme;
+        } catch (e) {}
+    </script>
+
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+          integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+            integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="trig.css">
+    <script type="module" src="js/app.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/">Turk’s Math Stuff</a>
+        <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to dark mode">
+            <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+        </button>
+    </header>
+
+    <main>
+        <!-- Home: pick a mode -->
+        <section id="home" class="screen">
+            <h1>Trig Facts Practice</h1>
+            <p class="subtitle">Exact unit-circle facts, in radians. Just tap — no typing.</p>
+
+            <div class="card">
+                <h2 class="label">Mode</h2>
+                <div id="mode-list" class="mode-grid" role="radiogroup" aria-label="Practice mode"></div>
+
+                <div class="settings-row">
+                    <div>
+                        <h2 class="label">Questions</h2>
+                        <div id="length-choice" class="segmented">
+                            <button type="button" data-length="10">10</button>
+                            <button type="button" data-length="20">20</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="label">Unit circle</h2>
+                        <div id="circle-choice" class="segmented">
+                            <button type="button" data-circle="on">Show</button>
+                            <button type="button" data-circle="off">Hide</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="start-btn" type="button" class="primary">Start</button>
+            </div>
+
+            <details class="card stats-card">
+                <summary>Your progress <span class="muted">(saved on this device)</span></summary>
+                <div class="stat-tiles">
+                    <div><span class="label">Answered</span><b id="stat-attempted">0</b></div>
+                    <div><span class="label">Accuracy</span><b id="stat-accuracy">—</b></div>
+                    <div><span class="label">Streak</span><b id="stat-streak">0</b></div>
+                    <div><span class="label">Best streak</span><b id="stat-best">0</b></div>
+                </div>
+                <div id="family-stats" class="fam-list"></div>
+                <button id="reset-btn" type="button" class="ghost danger">Reset progress</button>
+            </details>
+        </section>
+
+        <!-- Practice -->
+        <section id="practice" class="screen" hidden>
+            <div class="practice-bar">
+                <button id="quit-btn" type="button" class="ghost small">← Modes</button>
+                <span id="mode-label" class="mode-label"></span>
+                <button id="circle-toggle" type="button" class="icon-btn" aria-pressed="true" aria-label="Hide unit circle">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l6-3.5"/><path d="M2.5 12h19M12 2.5v19" opacity=".45"/></svg>
+                </button>
+            </div>
+
+            <div class="progress" aria-hidden="true"><div id="progress-fill" class="progress-fill"></div></div>
+            <div class="meters">
+                <span>Question <b id="q-num">1</b> / <b id="q-total">10</b></span>
+                <span>Streak <b id="streak">0</b></span>
+                <span>Accuracy <b id="accuracy">—</b></span>
+            </div>
+
+            <div class="practice-body">
+                <div id="stage" class="card stage">
+                    <div id="circle-wrap" class="circle-wrap"></div>
+                    <div class="question">
+                        <div class="q-head">
+                            <p id="family-tag" class="family-tag"></p>
+                            <p id="caption" class="caption"></p>
+                            <div id="prompt" class="prompt"></div>
+                        </div>
+                        <div id="answer" class="answer" aria-live="polite"></div>
+                        <div id="feedback" class="feedback" aria-live="polite"></div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <div id="pad" class="pad"></div>
+                    <button id="check-btn" type="button" class="primary big">Check</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Session summary -->
+        <section id="summary" class="screen" hidden>
+            <div class="card summary-card">
+                <p id="sum-mode" class="family-tag"></p>
+                <p class="sum-score" id="sum-score"></p>
+                <p class="muted">Accuracy <b id="sum-pct"></b></p>
+                <div id="sum-missed-wrap">
+                    <h2 class="label">Review these</h2>
+                    <ul id="sum-missed" class="sum-missed"></ul>
+                </div>
+                <div class="sum-actions">
+                    <button id="again-btn" type="button" class="primary">Practice again</button>
+                    <button id="modes-btn" type="button" class="ghost">Choose mode</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
