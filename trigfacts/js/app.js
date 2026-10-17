@@ -99,7 +99,7 @@ function renderHome() {
     list.append(b);
   }
   for (const b of $('length-choice').querySelectorAll('button')) {
-    b.setAttribute('aria-pressed', String(Number(b.dataset.length) === data.settings.length));
+    b.setAttribute('aria-pressed', String(b.dataset.length === String(data.settings.length)));
   }
   for (const b of $('circle-choice').querySelectorAll('button')) {
     b.setAttribute('aria-pressed', String((b.dataset.circle === 'on') === data.settings.showCircle));
@@ -113,7 +113,7 @@ function renderHome() {
 $('length-choice').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
-  data.settings.length = Number(b.dataset.length);
+  data.settings.length = b.dataset.length === 'endless' ? 'endless' : 10;
   persist();
   renderHome();
 });
@@ -189,7 +189,8 @@ const pads = {}; // pad key → pad element, built once
 const wheels = {}; // pad key → dial, for the pads that are dials
 
 function startSession() {
-  const { mode, length } = data.settings;
+  const { mode } = data.settings;
+  const length = data.settings.length === 'endless' ? Infinity : 10;
   session = { mode, length, dealer: new Dealer(mode), index: 0, correct: 0, results: [], startedAt: Date.now() };
   $('mode-label').textContent = MODES[mode].label;
   applyCircleSetting();
@@ -224,7 +225,7 @@ function emptySelection(type) {
 function nextQuestion() {
   const q = session.dealer.next();
   const type = FAMILIES[q.family].answer;
-  Object.assign(session, { question: q, type, sel: emptySelection(type), checked: false });
+  Object.assign(session, { question: q, type, sel: emptySelection(type), checked: false, shownAt: Date.now() });
 
   const prompt = promptOf(q);
   $('family-tag').textContent = FAMILIES[q.family].label;
@@ -285,18 +286,18 @@ const HELP = {
   valueWheel: { title: 'Turning the dial', items: [
     'Turn the dial until your answer sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
     CHECK,
-    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> picks the value in the window, then checks.'),
   ] },
   equationWheel: { title: 'Naming the line', items: [
     'Pick <b>sin θ</b> or <b>cos θ</b> with the switch above the dial.',
     'Turn the dial until the value sits in the blue window. Drag it, tap a value, or use the ‹ › buttons.',
     CHECK,
-    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>↑</kbd> <kbd>↓</kbd> switch between sin θ and cos θ, <kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> flips the sign, <kbd>Enter</kbd> picks the value in the window, then checks.'),
   ] },
   signedAngleWheel: { title: 'Turning the angle dial', items: [
     'Turn the dial until your angle sits in the blue window. It runs from −5π/6 up to π, so the negative angles are on it too.',
     CHECK,
-    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> jumps to the opposite angle, <kbd>Enter</kbd> checks.'),
+    KEYS('<kbd>←</kbd> <kbd>→</kbd> turn the dial, <kbd>-</kbd> or <kbd>A</kbd> jumps to the opposite angle, <kbd>Enter</kbd> picks the value in the window, then checks.'),
   ] },
   value: { title: 'Picking a value', items: [
     'Tap the exact value. Each negative sits right under its positive.',
@@ -533,10 +534,12 @@ function renderSelection() {
 function updateMeters() {
   const answered = session.results.length;
   $('q-num').textContent = Math.min(session.index + 1, session.length);
-  $('q-total').textContent = session.length;
+  $('q-total').textContent = session.length === Infinity ? '∞' : session.length;
   $('streak').textContent = data.stats.streak;
   $('accuracy').textContent = pct(session.correct, answered);
-  $('progress-fill').style.width = `${(100 * answered) / session.length}%`;
+  // Endless rounds fill the bar once per set of 10.
+  const done = session.length === Infinity ? answered - Math.floor(session.index / SET) * SET : answered;
+  $('progress-fill').style.width = `${(100 * done) / Math.min(session.length, SET)}%`;
 }
 
 function check() {
@@ -580,6 +583,7 @@ function check() {
 }
 
 const AUTO_NEXT_MS = 700;
+const ENTER_GRACE_MS = 400;
 const WRONG_WAIT_MS = 1200;
 
 function flash(kind) {
@@ -627,15 +631,40 @@ function advance() {
   clearTimeout(session.autoNext);
   session.index++;
   if (session.index >= session.length) showSummary();
+  else if (session.index % SET === 0) askToContinue(); // only endless rounds get this far
   else nextQuestion();
 }
+
+// ---------- endless rounds ----------
+
+const SET = 10;
+let continueOpenedAt = 0;
+
+function askToContinue() {
+  const set = session.results.slice(-SET);
+  $('continue-set').textContent = `${set.filter((r) => r.correct).length} / ${set.length}`;
+  $('continue-total').textContent = `${session.correct} / ${session.results.length}`;
+  $('continue').returnValue = '';
+  continueOpenedAt = Date.now();
+  $('continue').showModal();
+}
+
+$('continue-yes').addEventListener('click', () => $('continue').close('more'));
+$('continue-no').addEventListener('click', () => $('continue').close('done'));
+// Esc counts as keep going.
+$('continue').addEventListener('close', () => {
+  if (!session) return;
+  session.startedAt += Date.now() - continueOpenedAt; // deciding doesn't count against the clock
+  if ($('continue').returnValue === 'done') showSummary();
+  else nextQuestion();
+});
 
 $('check-btn').addEventListener('click', () => {
   if (!session.checked) check();
 });
 
 document.addEventListener('keydown', (e) => {
-  if (!session || $('practice').hidden || $('help').open || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!session || $('practice').hidden || document.querySelector('dialog[open]') || e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && activeWheel() && !e.target.closest('.dial')) {
     e.preventDefault();
     activeWheel().step(e.key === 'ArrowLeft' ? -1 : 1);
@@ -647,6 +676,15 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && (e.target.closest('#pad') || !e.target.closest('button:not(#check-btn)'))) {
     // Enter checks even right after clicking a pad button (which keeps focus); Space still presses a focused button.
     e.preventDefault();
+    if (e.repeat) return; // a held-down Enter never answers
+    const wheel = activeWheel();
+    if (wheel?.unset && !session.checked) {
+      // On an untouched dial, Enter locks in the value in the window (so 0 needs no turning);
+      // the next Enter checks. Ignored just after a question appears, so mashing Enter
+      // through the feedback doesn't pick 0 for the next question.
+      if (Date.now() - session.shownAt > ENTER_GRACE_MS) wheel.choose();
+      return;
+    }
     if (!$('check-btn').disabled) $('check-btn').click();
   } else if (e.key === '-' || e.key === '_' || e.key === 'a' || e.key === 'A') {
     toggleSign();

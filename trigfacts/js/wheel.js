@@ -4,8 +4,8 @@
 
 // items: [{ key, text, render: () => Node }] (text is what screen readers announce), onChange(index) fires whenever the selected item changes.
 // verticalKeys: false leaves the up/down arrows free for the page to use.
-// clear() rests the dial on a value without choosing it; turning the dial or tapping a value
-// (even the one already in the window) chooses one.
+// clear() rests the dial on a value without choosing it; turning the dial, tapping a value
+// (even the one already in the window), or choose() chooses one.
 export function createWheel(items, { label = 'Answer', onChange = () => {}, verticalKeys = true } = {}) {
   const n = items.length;
   const slice = 360 / n;
@@ -152,6 +152,10 @@ export function createWheel(items, { label = 'Answer', onChange = () => {}, vert
       unset = true;
       setIndex(i, { notify: false });
     },
+    choose() {
+      if (!disabled) setIndex(index);
+    },
+    get unset() { return unset; },
     get index() { return index; },
     indexOf: (key) => items.findIndex((it) => it.key === key),
     setDisabled(on) {

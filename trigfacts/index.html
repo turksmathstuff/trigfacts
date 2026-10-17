@@ -49,21 +49,21 @@
                         <h2 class="label">Questions</h2>
                         <div id="length-choice" class="segmented">
                             <button type="button" data-length="10">10</button>
-                            <button type="button" data-length="20">20</button>
+                            <button type="button" data-length="endless" aria-label="Endless">∞</button>
                         </div>
                     </div>
                     <div>
                         <h2 class="label">Answer input</h2>
                         <div id="input-choice" class="segmented">
-                            <button type="button" data-input="wheel">Wheel</button>
+                            <button type="button" data-input="wheel">Dial</button>
                             <button type="button" data-input="buttons">Buttons</button>
                         </div>
                     </div>
                     <div>
                         <h2 class="label">Unit circle</h2>
                         <div id="circle-choice" class="segmented">
-                            <button type="button" data-circle="on">Show</button>
                             <button type="button" data-circle="off">Hide</button>
+                            <button type="button" data-circle="on">Show</button>
                         </div>
                     </div>
                 </div>
@@ -128,10 +128,18 @@
         </section>
 
         <!-- How-to popup: shown the first time each kind of answer input appears, and from the ? button -->
-        <dialog id="help" class="help" aria-labelledby="help-title">
+        <dialog id="help" class="popup" aria-labelledby="help-title">
             <h2 id="help-title"></h2>
             <ul id="help-list"></ul>
             <button id="help-close" type="button" class="primary">Got it</button>
+        </dialog>
+
+        <!-- Endless rounds: after every 10 questions, ask whether to keep going -->
+        <dialog id="continue" class="popup" aria-labelledby="continue-title">
+            <h2 id="continue-title">10 more done!</h2>
+            <p class="continue-scores">This set <b id="continue-set"></b> · Overall <b id="continue-total"></b></p>
+            <button id="continue-yes" type="button" class="primary">Keep going</button>
+            <button id="continue-no" type="button" class="ghost continue-no">See results</button>
         </dialog>
 
         <!-- Session summary -->

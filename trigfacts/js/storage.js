@@ -3,9 +3,10 @@
 
 const KEY = 'turksmathstuff.trigfacts.v1';
 
+// length: 10, or 'endless' (asks every 10 questions whether to keep going).
 // theme: null means not chosen yet, which shows dark.
 // seenHelp: which answer inputs have already shown their how-to popup (keyed like app.js's pads).
-export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, input: 'wheel', theme: null, seenHelp: {} };
+export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: false, input: 'wheel', theme: null, seenHelp: {} };
 
 export function emptyStats() {
   return { attempted: 0, correct: 0, streak: 0, bestStreak: 0, families: {}, facts: {} };
@@ -14,10 +15,9 @@ export function emptyStats() {
 export function load(storage = globalThis.localStorage) {
   try {
     const saved = JSON.parse(storage.getItem(KEY)) || {};
-    return {
-      stats: { ...emptyStats(), ...saved.stats },
-      settings: { ...DEFAULT_SETTINGS, ...saved.settings },
-    };
+    const settings = { ...DEFAULT_SETTINGS, ...saved.settings };
+    if (settings.length !== 'endless') settings.length = 10; // 20-question rounds were dropped
+    return { stats: { ...emptyStats(), ...saved.stats }, settings };
   } catch {
     return { stats: emptyStats(), settings: { ...DEFAULT_SETTINGS } };
   }

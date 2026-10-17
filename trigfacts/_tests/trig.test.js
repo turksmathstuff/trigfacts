@@ -272,10 +272,15 @@ test('storage round-trips and survives bad data', () => {
   assert.equal(load(store).stats.attempted, 0);
   const data = load(store);
   data.stats = recordResult(data.stats, { id: 'cos:0', family: 'cos' }, true);
-  data.settings.length = 20;
+  data.settings.length = 'endless';
   save(data, store);
   assert.equal(load(store).stats.correct, 1);
-  assert.equal(load(store).settings.length, 20);
+  assert.equal(load(store).settings.length, 'endless');
+
+  // 20-question rounds were dropped; an old saved 20 comes back as 10.
+  data.settings.length = 20;
+  save(data, store);
+  assert.equal(load(store).settings.length, 10);
 
   store.setItem('turksmathstuff.trigfacts.v1', '{not json');
   assert.equal(load(store).stats.attempted, 0);

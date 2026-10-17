@@ -173,23 +173,26 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
 .bar-actions { display: flex; gap: 8px; }
 .help-btn { font-size: 1.2rem; font-weight: 700; }
 
-/* how-to popup */
-.help {
+/* popups: how-to help, and the keep-going check in endless rounds */
+.popup {
     width: min(420px, calc(100vw - 32px)); padding: 20px 22px 18px;
     background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
-.help::backdrop { background: rgba(15, 23, 42, 0.45); }
-.help h2 { margin: 0 0 10px; font-size: 1.15rem; color: var(--accent); }
-.help ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
-.help li { line-height: 1.45; }
-.help .keys { color: var(--muted); font-size: 0.92rem; }
-.help kbd {
+.popup::backdrop { background: rgba(15, 23, 42, 0.45); }
+.popup h2 { margin: 0 0 10px; font-size: 1.15rem; color: var(--accent); }
+.popup ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.popup li { line-height: 1.45; }
+.popup .keys { color: var(--muted); font-size: 0.92rem; }
+.popup kbd {
     display: inline-block; min-width: 1.6em; padding: 1px 6px; text-align: center;
     background: var(--key-bg); border: 1px solid var(--key-border); border-bottom-width: 2px; border-radius: 6px;
     font-family: inherit; font-size: 0.85em; color: var(--text);
 }
-.help .primary { margin-top: 18px; }
+.popup .primary { margin-top: 18px; }
+.continue-scores { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.continue-scores b { color: var(--text); }
+.continue-no { display: block; width: 100%; margin-top: 10px; }
 .mode-label { font-weight: 700; color: var(--accent); text-align: center; }
 
 .progress { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
