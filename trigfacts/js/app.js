@@ -286,6 +286,7 @@ const wheelActive = () => !!session && $('pad').firstChild === pads.wheel && !!p
 function buildWheel() {
   const items = WHEEL_VALUES.map((v) => ({
     key: valueKey(v),
+    text: texToText(valueTex(v)),
     render: () => (v.mag === 'undef'
       ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
       : math(valueTex(v))),
@@ -550,10 +551,10 @@ $('check-btn').addEventListener('click', () => (session.checked ? advance() : lo
 
 document.addEventListener('keydown', (e) => {
   if (!session || $('practice').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
-  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && wheelActive() && !e.target.closest('.wheel')) {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && wheelActive() && !e.target.closest('.dial')) {
     e.preventDefault();
     wheel.step(e.key === 'ArrowLeft' ? -1 : 1);
-  } else if (e.key === 'Enter' && (e.target.closest('.wheel') || !e.target.closest('button:not(#check-btn)'))) {
+  } else if (e.key === 'Enter' && (e.target.closest('.dial') || !e.target.closest('button:not(#check-btn)'))) {
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();
   } else if (e.key === '-' || e.key === '_') {
