@@ -236,7 +236,8 @@ function nextQuestion() {
   $('feedback').replaceChildren();
   $('feedback').className = 'feedback';
   $('stage').dataset.status = '';
-  document.querySelectorAll('.flash').forEach((n) => n.classList.remove('is-on'));
+  document.querySelectorAll('.flash').forEach((n) => n.classList.remove('is-on', 'is-correct', 'is-wrong'));
+  $('check-btn').classList.remove('is-waiting');
 
   // Unit circle: show the given angle or point; selected angles are drawn as the student picks.
   circle.setStatus(null);
@@ -511,22 +512,35 @@ function check() {
 
   if (result.correct) {
     // Right answers just flash a check and move on; pressing Next/Enter skips the wait.
-    flashCorrect();
+    flash('correct');
     const s = session;
     session.autoNext = setTimeout(() => { if (session === s) advance(); }, AUTO_NEXT_MS);
     return;
   }
+  // Wrong answers show red X's and the right answer, and Next stays locked for a moment
+  // so the correction actually gets read.
+  flash('wrong');
   renderFeedback(q, answer, result);
-  $('check-btn').focus({ preventScroll: true });
+  const btn = $('check-btn');
+  btn.disabled = true;
+  btn.classList.add('is-waiting');
+  const s = session;
+  session.unlock = setTimeout(() => {
+    if (session !== s) return;
+    btn.disabled = false;
+    btn.classList.remove('is-waiting');
+    btn.focus({ preventScroll: true });
+  }, WRONG_WAIT_MS);
 }
 
 const AUTO_NEXT_MS = 700;
+const WRONG_WAIT_MS = 1500;
 
-function flashCorrect() {
+function flash(kind) {
   for (const node of document.querySelectorAll('.flash')) {
-    node.classList.remove('is-on');
+    node.classList.remove('is-on', 'is-correct', 'is-wrong');
     void node.offsetWidth; // restart the animation
-    node.classList.add('is-on');
+    node.classList.add('is-on', `is-${kind}`);
   }
 }
 
@@ -562,6 +576,7 @@ function renderFeedback(q, answer, result) {
 
 function advance() {
   clearTimeout(session.autoNext);
+  clearTimeout(session.unlock);
   session.index++;
   if (session.index >= session.length) showSummary();
   else nextQuestion();
