@@ -58,18 +58,14 @@ function button(className, onClick, ...children) {
 
 // ---------- theme ----------
 
+// Dark unless the student has switched to light.
+const isDark = () => (data.settings.theme || 'dark') === 'dark';
+
 function applyTheme() {
-  const root = document.documentElement;
-  if (data.settings.theme) root.dataset.theme = data.settings.theme;
-  else delete root.dataset.theme;
   const dark = isDark();
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   $('theme-toggle').setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
   $('theme-toggle').dataset.mode = dark ? 'dark' : 'light';
-}
-
-function isDark() {
-  const t = data.settings.theme;
-  return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 $('theme-toggle').addEventListener('click', () => {
@@ -77,7 +73,6 @@ $('theme-toggle').addEventListener('click', () => {
   persist();
   applyTheme();
 });
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
 
 // ---------- home screen ----------
 

@@ -3,6 +3,7 @@
 
 const KEY = 'turksmathstuff.trigfacts.v1';
 
+// theme: null means not chosen yet, which shows dark.
 // seenHelp: which answer inputs have already shown their how-to popup (keyed like app.js's pads).
 export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, input: 'wheel', theme: null, seenHelp: {} };
 
