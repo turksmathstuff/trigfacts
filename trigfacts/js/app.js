@@ -2,7 +2,7 @@
 // this file only renders and wires up events.
 
 import {
-  PAD_MAGNITUDES, GRID_ANGLES, INVERSE_RANGES, valueKey,
+  PAD_MAGNITUDES, GRID_ANGLES, SIGNED_ANGLES, INVERSE_RANGES, valueKey,
   value, negate, isSignable, valueApprox, trigOf, pointOf, pointKey, angleTex, valueTex, pointTex,
 } from './trig-data.js';
 import { FAMILIES, MODES, Dealer, correctAnswer, promptOf, answerTex } from './questions.js';
@@ -190,7 +190,8 @@ $('start-btn').addEventListener('click', () => startSession());
 // ---------- practice ----------
 
 const circle = createCircle($('circle-wrap'));
-const pads = {}; // answer type → pad element, built once
+const pads = {}; // pad key → pad element, built once
+const wheels = {}; // pad key → dial, for the pads that are dials
 
 function startSession() {
   const { mode, length } = data.settings;
@@ -254,19 +255,21 @@ function nextQuestion() {
 const sameP = (a, b) => pointKey(a) === pointKey(b);
 
 function showPad(type) {
-  let key = type === 'point' ? 'value' : type;
-  if (key === 'value' && data.settings.input === 'wheel') key = 'wheel';
+  const kind = type === 'point' ? 'value' : type;
+  const useWheel = data.settings.input === 'wheel';
+  const key = useWheel ? `${kind}Wheel` : kind;
   if (!pads[key]) {
-    if (key === 'wheel') {
-      wheel = buildWheel();
-      pads.wheel = wheel.el;
+    if (useWheel) {
+      wheels[key] = buildWheel(kind);
+      pads[key] = wheels[key].el;
     } else {
-      pads[key] = key === 'value' ? buildValuePad() : buildAnglePad(key === 'signedAngle');
+      pads[key] = kind === 'value' ? buildValuePad() : buildAnglePad(kind === 'signedAngle');
     }
   }
   $('pad').replaceChildren(pads[key]);
   for (const b of pads[key].querySelectorAll('button')) b.disabled = false;
-  if (key === 'wheel') {
+  const wheel = wheels[key];
+  if (wheel) {
     wheel.setDisabled(false);
     wheel.setIndex(wheel.indexOf('0')); // every question starts the wheel at 0
   }
@@ -282,45 +285,58 @@ const WHEEL_VALUES = (() => {
   return [...signed.sort((a, b) => valueApprox(a) - valueApprox(b)), value('undef')];
 })();
 
-let wheel = null;
-
-const wheelActive = () => !!session && $('pad').firstChild === pads.wheel && !!pads.wheel;
-
-function buildWheel() {
-  const items = WHEEL_VALUES.map((v) => ({
-    key: valueKey(v),
-    text: texToText(valueTex(v)),
-    render: () => (v.mag === 'undef'
-      ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
-      : math(valueTex(v))),
-  }));
-  return createWheel(items, { label: 'Exact value', onChange: (i) => wheelChanged(WHEEL_VALUES[i]) });
+// The dial on screen right now, or null when the pad is buttons.
+function activeWheel() {
+  if (!session) return null;
+  return Object.values(wheels).find((w) => $('pad').firstChild === w.el) ?? null;
 }
 
+// kind: 'value' (exact values), 'angle' (0 to 11π/6), or 'signedAngle' (−5π/6 to π, for inverse trig).
+function buildWheel(kind) {
+  if (kind === 'value') {
+    const items = WHEEL_VALUES.map((v) => ({
+      key: valueKey(v),
+      text: texToText(valueTex(v)),
+      render: () => (v.mag === 'undef'
+        ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
+        : math(valueTex(v))),
+    }));
+    return createWheel(items, { label: 'Exact value', onChange: (i) => wheelChanged(WHEEL_VALUES[i]) });
+  }
+  const angles = kind === 'angle' ? GRID_ANGLES : SIGNED_ANGLES;
+  const items = angles.map((t) => ({ key: String(t), text: texToText(angleTex(t)), render: () => math(angleTex(t)) }));
+  return createWheel(items, { label: 'Angle', onChange: (i) => wheelChanged(angles[i]) });
+}
+
+// v is an exact value for value/point questions, or an angle in twelfths for angle questions.
 function wheelChanged(v) {
   if (!session || session.checked) return;
+  const s = session.sel;
   if (session.type === 'point') {
-    const s = session.sel;
     s[s.active] = v;
     s.last = s.active;
+  } else if (session.type === 'signedAngle') {
+    session.sel = { t: Math.abs(v), neg: v < 0 };
   } else {
     session.sel = v;
   }
   renderSelection();
+  if (session.type === 'angle' || session.type === 'signedAngle') circle.setAngle(currentAnswer());
 }
 
-function setWheelTo(v) {
-  wheel.setIndex(wheel.indexOf(valueKey(v)));
+function setWheelTo(key) {
+  const wheel = activeWheel();
+  wheel.setIndex(wheel.indexOf(key));
 }
 
 // With the wheel, Enter/Check on x locks it in and moves on to y.
-const lockingX = () => wheelActive() && session.type === 'point' && session.sel.active === 'x';
+const lockingX = () => !!activeWheel() && session.type === 'point' && session.sel.active === 'x';
 
 function lockIn() {
   if (lockingX()) {
     session.sel.active = 'y';
-    setWheelTo(session.sel.y ?? value('0'));
-    wheel.el.focus({ preventScroll: true });
+    setWheelTo(valueKey(session.sel.y ?? value('0')));
+    activeWheel().el.focus({ preventScroll: true });
     return;
   }
   check();
@@ -397,9 +413,14 @@ function pickAngle(t) {
 function toggleSign() {
   if (session.checked) return;
   const s = session.sel;
-  if (wheelActive()) {
-    const v = session.type === 'point' ? s[s.active] : s;
-    if (v && isSignable(v)) setWheelTo(negate(v));
+  if (activeWheel()) {
+    if (session.type === 'signedAngle') {
+      // Jump to the opposite angle when the dial has it (π and 0 have no partner).
+      if (activeWheel().indexOf(String(-currentAnswer())) >= 0) setWheelTo(String(-currentAnswer()));
+    } else if (session.type !== 'angle') {
+      const v = session.type === 'point' ? s[s.active] : s;
+      if (v && isSignable(v)) setWheelTo(valueKey(negate(v)));
+    }
     return;
   }
   if (session.type === 'value') {
@@ -419,7 +440,7 @@ function selectSlot(slot) {
   if (session.checked) return;
   session.sel.active = slot;
   session.sel.last = slot;
-  if (wheelActive()) setWheelTo(session.sel[slot] ?? value('0'));
+  if (activeWheel()) setWheelTo(valueKey(session.sel[slot] ?? value('0')));
   renderSelection();
 }
 
@@ -499,7 +520,7 @@ function check() {
   persist();
 
   for (const b of $('pad').querySelectorAll('button')) b.disabled = true;
-  if (wheelActive()) wheel.setDisabled(true);
+  activeWheel()?.setDisabled(true);
   $('stage').dataset.status = result.correct ? 'correct' : 'wrong';
   circle.setStatus(result.correct ? 'correct' : 'wrong');
   if (session.type === 'signedAngle') circle.setRange(INVERSE_RANGES[q.fn]);
@@ -580,9 +601,9 @@ $('check-btn').addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (!session || $('practice').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
-  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && wheelActive() && !e.target.closest('.dial')) {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && activeWheel() && !e.target.closest('.dial')) {
     e.preventDefault();
-    wheel.step(e.key === 'ArrowLeft' ? -1 : 1);
+    activeWheel().step(e.key === 'ArrowLeft' ? -1 : 1);
   } else if (e.key === 'Enter' && (e.target.closest('.dial') || !e.target.closest('button:not(#check-btn)'))) {
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();

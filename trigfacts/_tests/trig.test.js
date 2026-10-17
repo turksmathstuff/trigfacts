@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  STANDARD_ANGLES, value, valueKey, valueApprox, negate, trigOf, pointOf,
+  STANDARD_ANGLES, GRID_ANGLES, SIGNED_ANGLES, value, valueKey, valueApprox, negate, trigOf, pointOf,
   principalValue, inverseInputs, inPrincipalRange, angleTex, angleRadians, parseValueKey,
 } from '../js/trig-data.js';
 import { FAMILIES, MODES, Dealer, questionsFor, correctAnswer, promptOf } from '../js/questions.js';
@@ -144,6 +144,20 @@ test('every question has exactly one correct button choice', () => {
   for (const family of ['asin', 'acos', 'atan']) {
     for (const q of questionsFor(family)) {
       assert.equal(signed.filter((t) => checkAnswer(q, t).correct).length, 1, q.id);
+    }
+  }
+});
+
+test('the inverse-trig dial covers every grid point once, over (−π, π]', () => {
+  assert.equal(SIGNED_ANGLES.length, GRID_ANGLES.length);
+  assert.deepEqual(SIGNED_ANGLES, [...SIGNED_ANGLES].sort((a, b) => a - b));
+  assert.ok(SIGNED_ANGLES.every((t) => t > -12 && t <= 12));
+  const points = new Set(SIGNED_ANGLES.map((t) => `${valueKey(pointOf(t).x)},${valueKey(pointOf(t).y)}`));
+  assert.equal(points.size, GRID_ANGLES.length);
+  // Every inverse question has exactly one right stop on the dial.
+  for (const family of ['asin', 'acos', 'atan']) {
+    for (const q of questionsFor(family)) {
+      assert.equal(SIGNED_ANGLES.filter((t) => checkAnswer(q, t).correct).length, 1, q.id);
     }
   }
 });

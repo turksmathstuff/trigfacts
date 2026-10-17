@@ -35,6 +35,10 @@ const FIRST_QUADRANT = {
 export const STANDARD_ANGLES = [0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24];
 export const GRID_ANGLES = STANDARD_ANGLES.filter((t) => t !== 24);
 
+// The same 16 angles labeled over (−π, π] instead, in increasing order: −5π/6 … 0 … π.
+// The inverse-trig dial uses these, so negative angles need no separate sign control.
+export const SIGNED_ANGLES = GRID_ANGLES.map((t) => (t > 12 ? t - 24 : t)).sort((a, b) => a - b);
+
 export const FUNCTIONS = ['sin', 'cos', 'tan'];
 
 // ---------- exact values ----------
