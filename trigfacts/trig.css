@@ -260,12 +260,13 @@ h1 { margin: 8px 0 4px; color: var(--accent); font-weight: 800; font-size: clamp
     100% { opacity: 1; transform: scale(1); }
 }
 
-/* after a wrong answer, a bar fills the button until the next question appears */
+/* after checking, a bar fills the locked button until the next question appears */
 .primary.is-waiting { position: relative; overflow: hidden; opacity: 1; background: var(--muted); }
+.primary.is-waiting[data-wait="correct"] { background: var(--success); color: var(--accent-fg); }
 .primary.is-waiting::after {
     content: ""; position: absolute; left: 0; bottom: 0; height: 100%; width: 100%;
     background: rgba(255, 255, 255, 0.22); transform-origin: left;
-    animation: wait-fill 1.2s linear both;
+    animation: wait-fill var(--wait, 1.2s) linear both;
 }
 @keyframes wait-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes flash {

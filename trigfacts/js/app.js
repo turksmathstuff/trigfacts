@@ -510,21 +510,19 @@ function check() {
   updateMeters();
   $('check-btn').textContent = session.index + 1 >= session.length ? 'See results' : 'Next →';
 
-  if (result.correct) {
-    // Right answers just flash a check and move on; pressing Next/Enter skips the wait.
-    flash('correct');
-    const s = session;
-    session.autoNext = setTimeout(() => { if (session === s) advance(); }, AUTO_NEXT_MS);
-    return;
-  }
-  // Wrong answers show red X's and the right answer for a moment, then move on by themselves.
-  flash('wrong');
-  renderFeedback(q, answer, result);
+  // Right answers flash green checks; wrong ones show red X's and the right answer.
+  // Either way the next question comes up by itself, and the button stays locked meanwhile
+  // so a double-click can't skip past the feedback.
+  flash(result.correct ? 'correct' : 'wrong');
+  if (!result.correct) renderFeedback(q, answer, result);
+  const wait = result.correct ? AUTO_NEXT_MS : WRONG_WAIT_MS;
   const btn = $('check-btn');
   btn.disabled = true;
+  btn.dataset.wait = result.correct ? 'correct' : 'wrong';
+  btn.style.setProperty('--wait', `${wait}ms`);
   btn.classList.add('is-waiting');
   const s = session;
-  session.autoNext = setTimeout(() => { if (session === s) advance(); }, WRONG_WAIT_MS);
+  session.autoNext = setTimeout(() => { if (session === s) advance(); }, wait);
 }
 
 const AUTO_NEXT_MS = 700;
@@ -575,7 +573,9 @@ function advance() {
   else nextQuestion();
 }
 
-$('check-btn').addEventListener('click', () => (session.checked ? advance() : lockIn()));
+$('check-btn').addEventListener('click', () => {
+  if (!session.checked) lockIn();
+});
 
 document.addEventListener('keydown', (e) => {
   if (!session || $('practice').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
