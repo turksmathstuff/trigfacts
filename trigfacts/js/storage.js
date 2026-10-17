@@ -3,7 +3,7 @@
 
 const KEY = 'turksmathstuff.trigfacts.v1';
 
-export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, theme: null };
+export const DEFAULT_SETTINGS = { mode: 'values', length: 10, showCircle: true, input: 'wheel', theme: null };
 
 export function emptyStats() {
   return { attempted: 0, correct: 0, streak: 0, bestStreak: 0, families: {}, facts: {} };

@@ -3,12 +3,13 @@
 
 import {
   PAD_MAGNITUDES, GRID_ANGLES, INVERSE_RANGES, valueKey,
-  value, negate, isSignable, trigOf, pointOf, pointKey, angleTex, valueTex, pointTex,
+  value, negate, isSignable, valueApprox, trigOf, pointOf, pointKey, angleTex, valueTex, pointTex,
 } from './trig-data.js';
 import { FAMILIES, MODES, Dealer, correctAnswer, promptOf, answerTex } from './questions.js';
 import { checkAnswer } from './check.js';
 import { load, save, recordResult, emptyStats } from './storage.js';
 import { createCircle } from './circle.js';
+import { createWheel } from './wheel.js';
 
 const $ = (id) => document.getElementById(id);
 const fnTex = { sin: '\\sin', cos: '\\cos', tan: '\\tan' };
@@ -107,6 +108,9 @@ function renderHome() {
   for (const b of $('circle-choice').querySelectorAll('button')) {
     b.setAttribute('aria-pressed', String((b.dataset.circle === 'on') === data.settings.showCircle));
   }
+  for (const b of $('input-choice').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.input === data.settings.input));
+  }
   renderStats();
 }
 
@@ -122,6 +126,14 @@ $('circle-choice').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   data.settings.showCircle = b.dataset.circle === 'on';
+  persist();
+  renderHome();
+});
+
+$('input-choice').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  data.settings.input = b.dataset.input;
   persist();
   renderHome();
 });
@@ -234,16 +246,80 @@ function nextQuestion() {
   showPad(type);
   renderSelection();
   updateMeters();
-  $('check-btn').textContent = 'Check';
 }
 
 const sameP = (a, b) => pointKey(a) === pointKey(b);
 
 function showPad(type) {
-  const key = type === 'point' ? 'value' : type;
-  if (!pads[key]) pads[key] = key === 'value' ? buildValuePad() : buildAnglePad(key === 'signedAngle');
+  let key = type === 'point' ? 'value' : type;
+  if (key === 'value' && data.settings.input === 'wheel') key = 'wheel';
+  if (!pads[key]) {
+    if (key === 'wheel') {
+      wheel = buildWheel();
+      pads.wheel = wheel.el;
+    } else {
+      pads[key] = key === 'value' ? buildValuePad() : buildAnglePad(key === 'signedAngle');
+    }
+  }
   $('pad').replaceChildren(pads[key]);
   for (const b of pads[key].querySelectorAll('button')) b.disabled = false;
+  if (key === 'wheel') {
+    wheel.setDisabled(false);
+    wheel.setIndex(wheel.indexOf('0')); // every question starts the wheel at 0
+  }
+}
+
+// ---------- wheel input ----------
+
+// All exact values in number-line order. "undefined" sits at the wrap point between √3 and −√3,
+// the way tangent jumps from +∞ to −∞.
+const WHEEL_VALUES = (() => {
+  const signed = PAD_MAGNITUDES.filter((m) => m !== 'undef')
+    .flatMap((m) => (m === '0' ? [value(m)] : [value(m, -1), value(m, 1)]));
+  return [...signed.sort((a, b) => valueApprox(a) - valueApprox(b)), value('undef')];
+})();
+
+let wheel = null;
+
+const wheelActive = () => !!session && $('pad').firstChild === pads.wheel && !!pads.wheel;
+
+function buildWheel() {
+  const items = WHEEL_VALUES.map((v) => ({
+    key: valueKey(v),
+    render: () => (v.mag === 'undef'
+      ? Object.assign(document.createElement('span'), { className: 'wheel-word', textContent: 'undefined' })
+      : math(valueTex(v))),
+  }));
+  return createWheel(items, { label: 'Exact value', onChange: (i) => wheelChanged(WHEEL_VALUES[i]) });
+}
+
+function wheelChanged(v) {
+  if (!session || session.checked) return;
+  if (session.type === 'point') {
+    const s = session.sel;
+    s[s.active] = v;
+    s.last = s.active;
+  } else {
+    session.sel = v;
+  }
+  renderSelection();
+}
+
+function setWheelTo(v) {
+  wheel.setIndex(wheel.indexOf(valueKey(v)));
+}
+
+// With the wheel, Enter/Check on x locks it in and moves on to y.
+const lockingX = () => wheelActive() && session.type === 'point' && session.sel.active === 'x';
+
+function lockIn() {
+  if (lockingX()) {
+    session.sel.active = 'y';
+    setWheelTo(session.sel.y ?? value('0'));
+    wheel.el.focus({ preventScroll: true });
+    return;
+  }
+  check();
 }
 
 // Two rows of exact values: 0 and the positives on top; undefined and the negatives below,
@@ -317,6 +393,11 @@ function pickAngle(t) {
 function toggleSign() {
   if (session.checked) return;
   const s = session.sel;
+  if (wheelActive()) {
+    const v = session.type === 'point' ? s[s.active] : s;
+    if (v && isSignable(v)) setWheelTo(negate(v));
+    return;
+  }
   if (session.type === 'value') {
     if (s && isSignable(s)) session.sel = negate(s);
   } else if (session.type === 'point') {
@@ -334,6 +415,7 @@ function selectSlot(slot) {
   if (session.checked) return;
   session.sel.active = slot;
   session.sel.last = slot;
+  if (wheelActive()) setWheelTo(session.sel[slot] ?? value('0'));
   renderSelection();
 }
 
@@ -384,7 +466,8 @@ function renderSelection() {
   const sign = pad.querySelector('.sign-btn');
   if (sign) sign.setAttribute('aria-pressed', String(session.type === 'signedAngle' && s.neg));
 
-  $('check-btn').disabled = !session.checked && currentAnswer() === null;
+  $('check-btn').disabled = !session.checked && currentAnswer() === null && !lockingX();
+  if (!session.checked) $('check-btn').textContent = lockingX() ? 'Lock in x →' : 'Check';
 }
 
 function paren(text) {
@@ -412,6 +495,7 @@ function check() {
   persist();
 
   for (const b of $('pad').querySelectorAll('button')) b.disabled = true;
+  if (wheelActive()) wheel.setDisabled(true);
   $('stage').dataset.status = result.correct ? 'correct' : 'wrong';
   circle.setStatus(result.correct ? 'correct' : 'wrong');
   if (session.type === 'signedAngle') circle.setRange(INVERSE_RANGES[q.fn]);
@@ -462,11 +546,14 @@ function advance() {
   else nextQuestion();
 }
 
-$('check-btn').addEventListener('click', () => (session.checked ? advance() : check()));
+$('check-btn').addEventListener('click', () => (session.checked ? advance() : lockIn()));
 
 document.addEventListener('keydown', (e) => {
   if (!session || $('practice').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === 'Enter' && !e.target.closest('button:not(#check-btn)')) {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && wheelActive() && !e.target.closest('.wheel')) {
+    e.preventDefault();
+    wheel.step(e.key === 'ArrowLeft' ? -1 : 1);
+  } else if (e.key === 'Enter' && (e.target.closest('.wheel') || !e.target.closest('button:not(#check-btn)'))) {
     e.preventDefault();
     if (!$('check-btn').disabled) $('check-btn').click();
   } else if (e.key === '-' || e.key === '_') {
