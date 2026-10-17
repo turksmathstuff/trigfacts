@@ -24,8 +24,8 @@ export const FAMILIES = {
 // Each mode lists its families with relative weights, so all seven sources in Mixed show up about equally.
 export const MODES = {
   circle:  { label: 'Unit Circle', blurb: 'Name the line: sin θ = … or cos θ = …', weights: { line: 1 } },
-  values:  { label: 'Trig Values', blurb: 'sin, cos, and tan of standard angles', weights: { sin: 1, cos: 1, tan: 1 } },
-  inverse: { label: 'Inverse Trig', blurb: 'sin⁻¹, cos⁻¹, tan⁻¹ with principal values', weights: { asin: 1, acos: 1, atan: 1 } },
+  values:  { label: 'Trig Values', blurb: 'Memorized values for famous angles', weights: { sin: 1, cos: 1, tan: 1 } },
+  inverse: { label: 'Inverse Trig', blurb: 'Memorized inverse values', weights: { asin: 1, acos: 1, atan: 1 } },
   mixed:   { label: 'Mixed Practice', blurb: 'A balanced mix of everything', weights: { line: 2, sin: 2, cos: 2, tan: 2, asin: 2, acos: 2, atan: 2 } },
 };
 
